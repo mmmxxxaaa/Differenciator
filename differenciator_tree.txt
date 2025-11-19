@@ -1,0 +1,2 @@
+(+ (sin nul (x nul nul)) 
+   (cos nul (y nul nul)))
