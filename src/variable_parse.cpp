@@ -127,7 +127,20 @@ TreeErrorType SetVariableValue(VariableTable* ptr_table, const char* name_of_var
     if (index == -1)
         return TREE_ERROR_VARIABLE_NOT_FOUND;
 
+    printf("SetVariableValue: ДО УСТАНОВКИ - value = %.6f\n", value);
     ptr_table->variables[index].value = value;
+    // printf("PENIS: %f\n ---\n", value);
+    // printf("ZALUPA: %f\n ---\n", ptr_table->variables[index].value);
+    printf("SetVariableValue: УСТАНОВЛЕНО - ptr_table->variables[%d].value = %.6f\n",
+           index, ptr_table->variables[index].value);
+
+    printf("SetVariableValue: ТЕКУЩЕЕ СОСТОЯНИЕ ТАБЛИЦЫ:\n"); //отладочная инфа
+    for (int i = 0; i < ptr_table->number_of_variables; i++)
+    {
+        printf("  [%d] name='%s', value=%.6f\n",
+               i, ptr_table->variables[i].name, ptr_table->variables[i].value);
+    }
+
     ptr_table->variables[index].is_defined = true;
 
     return TREE_ERROR_NO;
@@ -157,17 +170,29 @@ TreeErrorType RequestVariableValue(VariableTable* ptr_table, const char* variabl
     printf("Введите значение для переменной '%s': ", variable_name);
 
     double value = 0.0;
+
+    // Добавим отладочную печать ДО scanf
+    printf("RequestVariableValue: перед scanf, value = %.6f\n", value);
+
     if (scanf("%lf", &value) != 1)
     {
         int c;
         while ((c = getchar()) != '\n' && c != EOF);
+        printf("RequestVariableValue: ОШИБКА ВВОДА!\n");
         return TREE_ERROR_INVALID_INPUT;
     }
 
     int c = '\0';
     while ((c = getchar()) != '\n' && c != EOF);
 
-    return SetVariableValue(ptr_table, variable_name, value);
+    // Добавим отладочную печать ПОСЛЕ scanf
+    printf("RequestVariableValue: после scanf, value = %.6f\n", value);
+    printf("RequestVariableValue: вызываем SetVariableValue с value = %.6f\n", value);
+
+    TreeErrorType result = SetVariableValue(ptr_table, variable_name, value);
+    printf("RequestVariableValue: результат SetVariableValue = %d\n", result);
+
+    return result;
 }
 
 void SortVariableTable(VariableTable* ptr_table)

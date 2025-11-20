@@ -148,7 +148,7 @@ static Node* ReadNodeFromBuffer(Tree* tree, char* buffer, size_t buffer_length, 
     if (progress != NULL)
     {
         AddNodeToLoadProgress(progress, node, depth);
-        TreeLoadDump(tree, "akinator_parse", buffer, buffer_length, *pos, progress, "Node created");
+        TreeLoadDump(tree, "differentiator_parse", buffer, buffer_length, *pos, progress, "Node created");
     }
 
     SkipSpaces(buffer, pos);
@@ -166,7 +166,7 @@ static Node* ReadNodeFromBuffer(Tree* tree, char* buffer, size_t buffer_length, 
     (*pos)++;
 
     if (progress != NULL)
-        TreeLoadDump(tree, "akinator_parse", buffer, buffer_length, *pos, progress, "Subtree complete");
+        TreeLoadDump(tree, "differentiator_parse", buffer, buffer_length, *pos, progress, "Subtree complete");
 
     return node;
 }

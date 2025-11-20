@@ -57,8 +57,7 @@ bool IsLeaf(Node* node)
     return (node->left == NULL && node->right == NULL);
 }
 
-//СИГМА СКИБИДИ
-// функция для создания узла из токена
+//FIXME должна принимать тип, а не сама определять его
 Node* CreateNodeFromToken(const char* token, Node* parent)
 {
     Node* node = (Node*)calloc(1, sizeof(Node));

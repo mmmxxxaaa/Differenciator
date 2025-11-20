@@ -10,7 +10,7 @@ const int kMaxVariableLength = 32;
 
 typedef struct {
     char   name[kMaxVariableLength];
-    int    value;
+    double value;
     size_t hash;
     bool   is_defined;
 } Variable;

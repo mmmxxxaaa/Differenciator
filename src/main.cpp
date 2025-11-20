@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include "tree_base.h"
 #include "tree_common.h"
+#include "latex_dump.h"
 //FIXME разобраться с именами файлов
 int main()
 {
@@ -15,7 +16,7 @@ int main()
     InitVariableTable(&var_table);
 
     InitTreeLog("differenciator_tree");
-    InitTreeLog("akinator_parse");
+    InitTreeLog("differentiator_parse");
 
     TreeErrorType error = TreeLoad(&tree, "differenciator_tree.txt");
 
@@ -81,8 +82,19 @@ int main()
         }
     }
 
+    printf("\n=== ГЕНЕРАЦИЯ LATEX ДОКУМЕНТА ===\n");
+    error = GenerateLatexDump(&tree, &var_table, "expression_analysis.tex", result);
+    if (error == TREE_ERROR_NO)
+    {
+        printf("LaTeX документ успешно создан!\n");
+    }
+    else
+    {
+        printf("Ошибка создания LaTeX документа: %d\n", error);
+    }
+
     CloseTreeLog("differenciator_tree");
-    CloseTreeLog("akinator_parse");
+    CloseTreeLog("differentiator_parse");
 
     DestroyVariableTable(&var_table);
     TreeDtor(&tree);
