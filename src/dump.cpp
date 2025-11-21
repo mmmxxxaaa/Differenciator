@@ -213,7 +213,6 @@ const char* GetNodeColor(Node* node, Tree* tree) //ЭТО ИМЕННО РЕСП�
         return "lightyellow"; // NUM - желтый
     else if (node->type == NODE_OP)
     {
-        // Разные цвета для разных операторов
         switch (node->data.op_value)
         {
             case OP_ADD: return "lightblue";     // + - голубой

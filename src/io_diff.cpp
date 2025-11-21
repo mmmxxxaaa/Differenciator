@@ -41,7 +41,6 @@ void FreeLoadProgress(LoadProgress* progress)
     progress->current_depth = 0;
 }
 
-
 size_t GetFileSize(FILE* file)
 {
     fseek(file, 0, SEEK_END);
@@ -119,7 +118,7 @@ static Node* ReadNodeFromBuffer(Tree* tree, char* buffer, size_t buffer_length, 
     if (buffer[*pos] == '\0')
         return NULL;
 
-    if (strncmp(buffer + *pos, "nul", sizeof("nul") - 1) == 0) //FIXME мб в константу
+    if (strncmp(buffer + *pos, "nul", sizeof("nul") - 1) == 0)
     {
         *pos += sizeof("nul") - 1;
         return NULL;
@@ -135,9 +134,7 @@ static Node* ReadNodeFromBuffer(Tree* tree, char* buffer, size_t buffer_length, 
     if (str_ptr == NULL)
         return NULL;
 
-    Node* node = CreateNodeFromToken(str_ptr, parent); //ХУЙНЯ надо передавать тип
-    //FIXME почему
-    // Node* node = CreateNode(str_ptr, parent); //FIXME теперь надо передавать в конструктор узла тип данных в узле    if (node == NULL)
+    Node* node = CreateNodeFromToken(str_ptr, parent); //FIXME надо передавать тип
     free(str_ptr);
     if (node == NULL)
         return NULL;
@@ -160,7 +157,7 @@ static Node* ReadNodeFromBuffer(Tree* tree, char* buffer, size_t buffer_length, 
     SkipSpaces(buffer, pos);
     if (buffer[*pos] != ')')
     {
-        // TreeDestroyWithDataRecursive(node);
+        // TreeDestroyWithDataRecursive(node); //FIXME
         return NULL;
     }
     (*pos)++;

@@ -58,7 +58,7 @@ bool IsLeaf(Node* node)
 }
 
 //FIXME должна принимать тип, а не сама определять его
-Node* CreateNodeFromToken(const char* token, Node* parent)
+Node* CreateNodeFromToken(const char* token, Node* parent) //СИГМА СКИБИДИ
 {
     Node* node = (Node*)calloc(1, sizeof(Node));
     if (node == NULL)

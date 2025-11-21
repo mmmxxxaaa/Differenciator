@@ -52,17 +52,17 @@ int FindVariableByHash(VariableTable* ptr_table, unsigned int hash, const char* 
     if (ptr_table->number_of_variables == 0)
         return -1;
 
-    size_t left = 0;
-    size_t right = ptr_table->number_of_variables - 1;
+    int left = 0; //FIXME хуево, что int?
+    int right = ptr_table->number_of_variables - 1;
 
     while (left <= right)
     {
-        size_t middle = left + (right - left) / 2;
+        int middle = left + (right - left) / 2;
 
         if (ptr_table->variables[middle].hash == hash)
         {
-            size_t same_hash_start = middle;
-            size_t same_hash_end = middle;
+            int same_hash_start = middle;
+            int same_hash_end = middle;
 
             while (same_hash_start > 0 && ptr_table->variables[same_hash_start - 1].hash == hash)
                 same_hash_start--;
@@ -72,12 +72,12 @@ int FindVariableByHash(VariableTable* ptr_table, unsigned int hash, const char* 
                 same_hash_end++;
 
             if (same_hash_start == same_hash_end)
-                return (int)middle;
+                return middle;
 
-            for (size_t i = same_hash_start; i <= same_hash_end; i++)
+            for (int i = same_hash_start; i <= same_hash_end; i++)
             {
                 if (strcmp(ptr_table->variables[i].name, name_of_variable) == 0)
-                    return (int)i;
+                    return i;
             }
             return -1;
         }
@@ -171,8 +171,7 @@ TreeErrorType RequestVariableValue(VariableTable* ptr_table, const char* variabl
 
     double value = 0.0;
 
-    // Добавим отладочную печать ДО scanf
-    printf("RequestVariableValue: перед scanf, value = %.6f\n", value);
+    printf("RequestVariableValue: перед scanf, value = %.6f\n", value); //отладочная информация
 
     if (scanf("%lf", &value) != 1)
     {
@@ -185,9 +184,8 @@ TreeErrorType RequestVariableValue(VariableTable* ptr_table, const char* variabl
     int c = '\0';
     while ((c = getchar()) != '\n' && c != EOF);
 
-    // Добавим отладочную печать ПОСЛЕ scanf
-    printf("RequestVariableValue: после scanf, value = %.6f\n", value);
-    printf("RequestVariableValue: вызываем SetVariableValue с value = %.6f\n", value);
+    printf("RequestVariableValue: после scanf, value = %.6f\n", value); //отладочная информацаия
+    printf("RequestVariableValue: вызываем SetVariableValue c value = %.6f\n", value);
 
     TreeErrorType result = SetVariableValue(ptr_table, variable_name, value);
     printf("RequestVariableValue: результат SetVariableValue = %d\n", result);

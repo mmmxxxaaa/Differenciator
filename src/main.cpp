@@ -1,19 +1,23 @@
+#include <stdio.h>
+#include <stdlib.h>
 #include "io_diff.h"
 #include "dump.h"
 #include "operations.h"
 #include "variable_parse.h"
-#include <stdio.h>
 #include "tree_base.h"
 #include "tree_common.h"
 #include "latex_dump.h"
-//FIXME разобраться с именами файлов
+#include "user_interface.h"
+
 int main()
 {
     Tree tree = {};
-    VariableTable var_table = {};
-    double result = 0.0;
+    TreeCtor(&tree);
 
+    VariableTable var_table = {};
     InitVariableTable(&var_table);
+
+    double result = 0.0;
 
     InitTreeLog("differenciator_tree");
     InitTreeLog("differentiator_parse");
@@ -35,62 +39,85 @@ int main()
         else
         {
             printf("Ошибка вычисления: %d\n", error);
-            switch (error)
+            PrintTreeError(error);
+        }
+
+        printf("\n=== ВЫЧИСЛЕНИЕ ПРОИЗВОДНЫХ ===\n");
+
+        Tree   derivative_trees[kMaxNumberOfDerivative] = {}; //FIXME мб это тоже в структурку?
+        double derivative_results[kMaxNumberOfDerivative] = {};
+        int    actual_derivative_count = 0;
+
+        Tree* current_tree = &tree;
+        for (int i = 0; i < kMaxNumberOfDerivative; i++)
+        {
+            TreeCtor(&derivative_trees[i]);
+
+            error = DifferentiateTree(current_tree, "x", &derivative_trees[i]);
+            if (error != TREE_ERROR_NO)
             {
-                case TREE_ERROR_DIVISION_BY_ZERO:
-                    printf("Деление на ноль!\n");
-                    break;
-                case TREE_ERROR_VARIABLE_NOT_FOUND:
-                    printf("Переменная не найдена!\n");
-                    break;
-                case TREE_ERROR_VARIABLE_UNDEFINED:
-                    printf("Переменная не определена!\n");
-                    break;
-                case TREE_ERROR_INVALID_INPUT:
-                    printf("Неверный ввод значения переменной!\n");
-                    break;
-                case TREE_ERROR_NULL_PTR:
-                    printf("Нулевой указатель!\n");
-                    break;
-                case TREE_ERROR_UNKNOWN_OPERATION:
-                    printf("Неизвестная операция!\n");
-                    break;
-                default:
-                    printf("Неизвестная ошибка вычисления\n");
+                printf("Ошибка вычисления производной порядка %d: %d\n", i + 1, error);
+                TreeDtor(&derivative_trees[i]);
+                break;
             }
+
+            printf("Производная порядка %d успешно вычислена!\n", i + 1);
+            TreeBaseDump(&derivative_trees[i]);
+
+            error = EvaluateTree(&derivative_trees[i], &var_table, &derivative_results[i]);
+            if (error == TREE_ERROR_NO)
+            {
+                printf("Значение производной порядка %d: %.6f\n", i + 1, derivative_results[i]);
+                actual_derivative_count++;
+            }
+            else
+            {
+                printf("Ошибка вычисления значения производной порядка %d\n", i + 1);
+                PrintTreeError(error);
+                derivative_results[i] = 0.0;
+                actual_derivative_count++;
+            }
+
+            current_tree = &derivative_trees[i];
+        }
+
+        printf("\n=== ГЕНЕРАЦИЯ LATEX ДОКУМЕНТА ===\n");
+
+        if (actual_derivative_count > 0)
+        {
+            Tree** derivative_trees_ptr = (Tree**)calloc(actual_derivative_count, sizeof(Tree*)); //массив указателей на деревья производных
+            for (int i = 0; i < actual_derivative_count; i++)
+                derivative_trees_ptr[i] = &derivative_trees[i];
+
+            error = GenerateLatexDumpWithDerivatives(&tree, derivative_trees_ptr, derivative_results,
+                                                   actual_derivative_count, &var_table,
+                                                   "expression_analysis.tex", result);
+
+            free(derivative_trees_ptr);
+        }
+
+        if (error == TREE_ERROR_NO)
+        {
+            printf("LaTeX документ успешно создан!\n");
+            if (actual_derivative_count > 0)
+            {
+                printf("Документ содержит производные до %d порядка\n", actual_derivative_count);
+            }
+        }
+        else
+        {
+            printf("Ошибка создания LaTeX документа: %d\n", error);
+        }
+
+        for (int i = 0; i < actual_derivative_count; i++)
+        {
+            TreeDtor(&derivative_trees[i]);
         }
     }
     else
     {
         printf("Ошибка загрузки дерева: %d\n", error);
-        switch (error)
-        {
-            case TREE_ERROR_NULL_PTR:
-                printf("Нулевой указатель\n");
-                break;
-            case TREE_ERROR_IO:
-                printf("Ошибка ввода-вывода (файл не найден или недоступен)\n");
-                break;
-            case TREE_ERROR_FORMAT:
-                printf("Ошибка формата файла\n");
-                break;
-            case TREE_ERROR_ALLOCATION:
-                printf("Ошибка выделения памяти\n");
-                break;
-            default:
-                printf("Неизвестная ошибка загрузки\n");
-        }
-    }
-
-    printf("\n=== ГЕНЕРАЦИЯ LATEX ДОКУМЕНТА ===\n");
-    error = GenerateLatexDump(&tree, &var_table, "expression_analysis.tex", result);
-    if (error == TREE_ERROR_NO)
-    {
-        printf("LaTeX документ успешно создан!\n");
-    }
-    else
-    {
-        printf("Ошибка создания LaTeX документа: %d\n", error);
+        PrintTreeError(error);
     }
 
     CloseTreeLog("differenciator_tree");

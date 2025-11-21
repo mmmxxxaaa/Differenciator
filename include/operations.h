@@ -6,6 +6,6 @@
 #include "variable_parse.h"
 
 TreeErrorType EvaluateTree(Tree* tree, VariableTable* var_table, double* result);
-
+TreeErrorType DifferentiateTree(Tree* tree, const char* variable_name, Tree* result_tree);
 
 #endif // DIFF_OPERATIONS
