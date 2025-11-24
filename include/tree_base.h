@@ -7,10 +7,10 @@
 
 TreeErrorType TreeCtor(Tree* tree);
 TreeErrorType TreeDtor(Tree* tree);
-Node* CreateNodeFromToken(const char* token, Node* parent); //FIXME
+void FreeNode(Node* node);
 
 bool IsLeaf(Node* node);
-TreeErrorType TreeDestroyWithDataRecursive(Node* node);
+
 unsigned int ComputeHash(const char* str);
 
 #endif // TREE_BASE_H_

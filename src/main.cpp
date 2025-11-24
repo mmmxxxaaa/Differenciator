@@ -22,9 +22,9 @@ int main()
     InitTreeLog("differenciator_tree");
     InitTreeLog("differentiator_parse");
 
-    TreeErrorType error = TreeLoad(&tree, "differenciator_tree.txt");
+    TreeErrorType error_loading = TreeLoad(&tree, "differenciator_tree.txt");
 
-    if (error == TREE_ERROR_NO)
+    if (error_loading == TREE_ERROR_NO)
     {
         printf("Дерево успешно загружено!\n");
         TreeBaseDump(&tree);

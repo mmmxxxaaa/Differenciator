@@ -11,7 +11,8 @@ const int         kMaxInputCapacity                   = 256;
 const int         kMaxPathDepth                       = 100;
 const int         kTreeDumpAfterAddingElementCapacity = 512;
 const char* const kDefaultDataBaseFilename            = "differenciator_tree.txt";
-const int         kMaxNumberOfDerivative              = 3;
+const int         kMaxNumberOfDerivative              = 4;
+const int         kMaxLengthOfTexExpression           = 10000;
 
 
 typedef enum {

@@ -74,7 +74,7 @@ static TreeErrorType DumpOriginalFunction(FILE* file, Tree* tree, double result_
     if (file == NULL || tree == NULL)
         return TREE_ERROR_NULL_PTR;
 
-    char expression[1024] = {0};
+    char expression[kMaxLengthOfTexExpression] = {0};
     int pos = 0;
     TreeToStringSimple(tree->root, expression, &pos, sizeof(expression));
 
@@ -90,7 +90,7 @@ static TreeErrorType DumpDerivative(FILE* file, Tree* derivative_tree, double de
     if (file == NULL || derivative_tree == NULL)
         return TREE_ERROR_NULL_PTR;
 
-    char derivative_expr[1024] = {0}; //FIXME
+    char derivative_expr[kMaxLengthOfTexExpression] = {0}; //FIXME
     int pos = 0;
     TreeToStringSimple(derivative_tree->root, derivative_expr, &pos, sizeof(derivative_expr));
 

@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include "dump.h"
 #include "tree_base.h"
+#include "operations.h"
 
 void InitLoadProgress(LoadProgress* progress)
 {
@@ -64,7 +65,7 @@ NodeType DetermineNodeType(const char* token)
     {
         return NODE_OP;
     }
-    else if (isdigit(token[0]) || (token[0] == '0' && isdigit(token[1])))
+    else if (isdigit(token[0]) || (token[0] == '-' && isdigit(token[1])))
     {
         return NODE_NUM;
     }
@@ -134,11 +135,12 @@ static Node* ReadNodeFromBuffer(Tree* tree, char* buffer, size_t buffer_length, 
     if (str_ptr == NULL)
         return NULL;
 
-    Node* node = CreateNodeFromToken(str_ptr, parent); //FIXME надо передавать тип
+    Node* node = CreateNodeFromToken(str_ptr, parent);
     free(str_ptr);
     if (node == NULL)
         return NULL;
 
+    // Основная логика без do-while
     if (tree != NULL)
         tree->size++;
 
@@ -157,7 +159,8 @@ static Node* ReadNodeFromBuffer(Tree* tree, char* buffer, size_t buffer_length, 
     SkipSpaces(buffer, pos);
     if (buffer[*pos] != ')')
     {
-        // TreeDestroyWithDataRecursive(node); //FIXME
+        // Ошибка формата - освобождаем узел и все поддеревья
+        FreeNode(node);
         return NULL;
     }
     (*pos)++;

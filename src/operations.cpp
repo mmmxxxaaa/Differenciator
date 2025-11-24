@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
+#include <ctype.h>
 #include "tree_error_types.h"
 #include "tree_common.h"
 #include "variable_parse.h"
@@ -139,8 +140,7 @@ TreeErrorType EvaluateTree(Tree* tree, VariableTable* var_table, double* result)
     return EvaluateTreeRecursive(tree->root, var_table, result);
 }
 
-//ХУЙНЯ у меня 2 функции разных для создания узла
-Node* CreateNode(NodeType type, void* data, Node* left, Node* right) //СИГМА СКИБИДИ пизды за void* дадут
+Node* CreateNode(NodeType type, ValueOfTreeElement data, Node* left, Node* right) //СИГМА СКИБИДИ
 {
     Node* node = (Node*)calloc(1, sizeof(Node));
     if (!node)
@@ -151,31 +151,12 @@ Node* CreateNode(NodeType type, void* data, Node* left, Node* right) //СИГМ�
     node->right = right;
     node->parent = NULL;
 
-    switch (type)
+    node->data = data; //FIXME
+
+    if (type == NODE_VAR && data.var_definition.name != NULL)
     {
-        case NODE_NUM:
-            if (data)
-                node->data.num_value = *(double*)data;
-            else
-                node->data.num_value = 0.0;
-            break;
-
-        case NODE_VAR:
-            if (data)
-            {
-                const char* name = (const char*)data;
-                node->data.var_definition.name = strdup(name);
-                node->data.var_definition.hash = ComputeHash(name);
-            }
-            break;
-
-        case NODE_OP:
-            if (data)
-                node->data.op_value = *(OperationType*)data;
-            break;
-
-        default:
-            break;
+        node->data.var_definition.name = data.var_definition.name;
+        node->data.var_definition.hash = ComputeHash(data.var_definition.name);
     }
 
     if (left)
@@ -186,37 +167,33 @@ Node* CreateNode(NodeType type, void* data, Node* left, Node* right) //СИГМ�
     return node;
 }
 
-//FIXME мб это как-то через DSL
-static Node* CreateNumberNode(double value)
-{
-    return CreateNode(NODE_NUM, &value, NULL, NULL);
-}
-
-static Node* CreateVariableNode(const char* name)
-{
-    return CreateNode(NODE_VAR, (void*)name, NULL, NULL);
-}
-
-static Node* CreateOperationNode(OperationType op, Node* left, Node* right)
-{
-    return CreateNode(NODE_OP, &op, left, right);
-}
-
 static Node* CopyNode(Node* original)
 {
     if (original == NULL)
         return NULL;
 
+    ValueOfTreeElement data = {};
+
     switch (original->type)
     {
         case NODE_NUM:
-            return CreateNumberNode(original->data.num_value);
+            data.num_value = original->data.num_value;
+            return CreateNode(NODE_NUM, data, NULL, NULL);
 
         case NODE_VAR:
-            return CreateVariableNode(original->data.var_definition.name);
+            data.var_definition.hash = original->data.var_definition.hash;
+            if (original->data.var_definition.name != NULL)
+            {
+                data.var_definition.name = strdup(original->data.var_definition.name);
+            }
+            else
+            {
+                data.var_definition.name = NULL;
+            }            return CreateNode(NODE_VAR, data, NULL, NULL);
 
         case NODE_OP:
-            return CreateOperationNode(original->data.op_value, CopyNode(original->left), CopyNode(original->right));
+            data.op_value = original->data.op_value;
+            return CreateNode(NODE_OP, data, CopyNode(original->left), CopyNode(original->right));
         default:
             return NULL;
     }
@@ -226,22 +203,29 @@ static Node* DifferentiateNode(Node* node, const char* variable_name)
 {
     if (node == NULL)
         return NULL;
+
+    ValueOfTreeElement data = {};
     //FIXME раскидать по функциям
     switch (node->type)
     {
         case NODE_NUM:
-            return CreateNumberNode(0.0);
+            data.num_value = 0.0;
+            return CreateNode(NODE_NUM, data, NULL, NULL);
 
         case NODE_VAR:
             if (node->data.var_definition.name && strcmp(node->data.var_definition.name, variable_name) == 0)
             {
                 // d(x)/dx = 1
-                return CreateNumberNode(1.0);
+                data.num_value = 1.0;
+
+                return CreateNode(NODE_NUM, data, NULL, NULL);
             }
             else
             {
                 // d(y)/dx = 0 (если y != x)
-                return CreateNumberNode(0.0);
+                data.num_value = 0.0;
+
+                return CreateNode(NODE_NUM, data, NULL, NULL);
             }
 
         case NODE_OP:
@@ -253,7 +237,9 @@ static Node* DifferentiateNode(Node* node, const char* variable_name)
                     // d(u +- v)/dx = du/dx +- dv/dx
                     Node* left_deriv = DifferentiateNode(node->left, variable_name);
                     Node* right_deriv = DifferentiateNode(node->right, variable_name);
-                    return CreateOperationNode(node->data.op_value, left_deriv, right_deriv);
+                    data.op_value = node->data.op_value;
+
+                    return CreateNode(NODE_OP, data, left_deriv, right_deriv);
                 }
 
                 case OP_MUL:
@@ -264,10 +250,13 @@ static Node* DifferentiateNode(Node* node, const char* variable_name)
                     Node* du_dx = DifferentiateNode(node->left, variable_name);
                     Node* dv_dx = DifferentiateNode(node->right, variable_name);
 
-                    Node* term1 = CreateOperationNode(OP_MUL, u, dv_dx);
-                    Node* term2 = CreateOperationNode(OP_MUL, v, du_dx);
+                    data.op_value = OP_MUL;
+                    Node* term1 = CreateNode(NODE_OP, data, u, dv_dx);
+                    Node* term2 = CreateNode(NODE_OP, data, v, du_dx);
 
-                    return CreateOperationNode(OP_ADD, term1, term2);
+                    data.op_value = OP_ADD;
+
+                    return CreateNode(NODE_OP, data, term1, term2);
                 }
 
                 case OP_DIV:
@@ -278,13 +267,19 @@ static Node* DifferentiateNode(Node* node, const char* variable_name)
                     Node* du_dx = DifferentiateNode(node->left, variable_name);
                     Node* dv_dx = DifferentiateNode(node->right, variable_name);
 
-                    Node* numerator_term1 = CreateOperationNode(OP_MUL, v, du_dx);
-                    Node* numerator_term2 = CreateOperationNode(OP_MUL, u, dv_dx);
-                    Node* numerator = CreateOperationNode(OP_SUB, numerator_term1, numerator_term2);
+                    data.op_value = OP_MUL;
+                    Node* numerator_term1 = CreateNode(NODE_OP, data, CopyNode(v), du_dx);
+                    Node* numerator_term2 = CreateNode(NODE_OP, data, CopyNode(u), dv_dx);
 
-                    Node* v_squared = CreateOperationNode(OP_MUL, CopyNode(v), CopyNode(v));
+                    data.op_value = OP_SUB;
+                    Node* numerator = CreateNode(NODE_OP, data, numerator_term1, numerator_term2);
 
-                    return CreateOperationNode(OP_DIV, numerator, v_squared);
+                    data.op_value = OP_MUL;
+                    Node* v_squared = CreateNode(NODE_OP, data, CopyNode(v), CopyNode(v));
+
+                    data.op_value = OP_DIV;
+
+                    return CreateNode(NODE_OP, data, numerator, v_squared);
                 }
 
                 case OP_SIN:
@@ -292,9 +287,12 @@ static Node* DifferentiateNode(Node* node, const char* variable_name)
                     // d(sin(u))/dx = cos(u) * du/dx
                     Node* u = CopyNode(node->right);
                     Node* du_dx = DifferentiateNode(node->right, variable_name);
-                    Node* cos_u = CreateOperationNode(OP_COS, NULL, u);
 
-                    return CreateOperationNode(OP_MUL, cos_u, du_dx);
+                    data.op_value = OP_COS;
+                    Node* cos_u = CreateNode(NODE_OP, data, NULL, u);
+
+                    data.op_value = OP_MUL;
+                    return CreateNode(NODE_OP, data, cos_u, du_dx);
                 }
 
                 case OP_COS:
@@ -302,19 +300,28 @@ static Node* DifferentiateNode(Node* node, const char* variable_name)
                     // d(cos(u))/dx = -sin(u) * du/dx
                     Node* u = CopyNode(node->right);
                     Node* du_dx = DifferentiateNode(node->right, variable_name);
-                    Node* sin_u = CreateOperationNode(OP_SIN, NULL, u);
-                    Node* minus_one = CreateNumberNode(-1.0);
-                    Node* minus_sin_u = CreateOperationNode(OP_MUL, minus_one, sin_u);
 
-                    return CreateOperationNode(OP_MUL, minus_sin_u, du_dx);
+                    data.op_value = OP_SIN;
+                    Node* sin_u = CreateNode(NODE_OP, data, NULL, u);
+
+                    data.num_value = -1.0;
+                    Node* minus_one = CreateNode(NODE_NUM, data, NULL, NULL);
+
+                    data.op_value = OP_MUL;
+                    Node* minus_sin_u = CreateNode(NODE_OP, data, minus_one, sin_u);
+
+                    data.op_value = OP_MUL;
+                    return CreateNode(NODE_OP, data, minus_sin_u, du_dx);
                 }
 
                 default:
-                    return CreateNumberNode(0.0);
+                    data.num_value = 0.0;
+                    return CreateNode(NODE_NUM, data, NULL, NULL);
             }
 
         default:
-            return CreateNumberNode(0.0);
+            data.num_value = 0.0;
+            return CreateNode(NODE_NUM, data, NULL, NULL);
     }
 }
 
@@ -342,4 +349,85 @@ TreeErrorType DifferentiateTree(Tree* tree, const char* variable_name, Tree* res
     result_tree->size = CountTreeNodes(derivative_root); //норм/хуйня? //FIXME
 
     return TREE_ERROR_NO;
+}
+
+
+// создавать переменные type и data
+// выстраивать их
+// после этого вызывать обычный CreateNode
+Node* CreateNodeFromToken(const char* token, Node* parent)
+{
+    NodeType type = NODE_NUM; //FIXME надо инициализировать
+    ValueOfTreeElement data = {0};
+
+    static unsigned int op_hashes[6] = {0}; //FIXME
+    static bool hashes_initialized = false;
+
+    if (!hashes_initialized)
+    {
+        op_hashes[0] = ComputeHash("+");
+        op_hashes[1] = ComputeHash("-");
+        op_hashes[2] = ComputeHash("*");
+        op_hashes[3] = ComputeHash("/");
+        op_hashes[4] = ComputeHash("sin");
+        op_hashes[5] = ComputeHash("cos");
+        hashes_initialized = true;
+    }
+
+    unsigned int token_hash = ComputeHash(token);
+
+    if (token_hash == op_hashes[0])
+    {
+        type = NODE_OP;
+        data.op_value = OP_ADD;
+    }
+    else if (token_hash == op_hashes[1])
+    {
+        type = NODE_OP;
+        data.op_value = OP_SUB;
+    }
+    else if (token_hash == op_hashes[2])
+    {
+        type = NODE_OP;
+        data.op_value = OP_MUL;
+    }
+    else if (token_hash == op_hashes[3])
+    {
+        type = NODE_OP;
+        data.op_value = OP_DIV;
+    }
+    else if (token_hash == op_hashes[4])
+    {
+        type = NODE_OP;
+        data.op_value = OP_SIN;
+    }
+    else if (token_hash == op_hashes[5])
+    {
+        type = NODE_OP;
+        data.op_value = OP_COS;
+    }
+    else if (isdigit(token[0]) || (token[0] == '-' && isdigit(token[1])))
+    {
+        type = NODE_NUM;
+        data.num_value = atof(token);
+    }
+    else
+    {
+        type = NODE_VAR;
+        data.var_definition.hash = token_hash;
+        data.var_definition.name = strdup(token);
+    }
+
+    Node* node = CreateNode(type, data, NULL, NULL);
+    if (node != NULL)
+    {
+        node->parent = parent;
+    }
+    else
+    {
+        if (type == NODE_VAR && data.var_definition.name != NULL)
+            free(data.var_definition.name);
+    }
+
+    return node;
 }
