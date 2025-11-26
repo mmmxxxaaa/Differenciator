@@ -34,6 +34,9 @@ static const char* NodeDataToString(const Node* node, char* buffer, size_t buffe
                 case OP_DIV: return "/";
                 case OP_SIN: return "sin";
                 case OP_COS: return "cos";
+                case OP_LN:  return "ln";
+                case OP_EXP: return "exp";
+                case OP_POW: return "^";
                 default: return "?OP";
             }
         case NODE_NUM:
@@ -221,6 +224,9 @@ const char* GetNodeColor(Node* node, Tree* tree) //ЭТО ИМЕННО РЕСП�
             case OP_DIV: return "plum";          // / - фиолетовый
             case OP_SIN: return "lightseagreen";
             case OP_COS: return "mediumpurple";
+            case OP_POW: return "orange";
+            case OP_LN:  return "brown";
+            case OP_EXP: return "darkgreen";
             default:     return "lightgrey";
         }
     }
@@ -437,7 +443,7 @@ TreeErrorType GenerateLoadProgressDotFile(Tree* tree, LoadProgress* progress, co
         Node* node   = progress->items[i].node;
         size_t depth = progress->items[i].depth;
         const char* color = GetNodeColor(node, tree);
-        char buffer[64]; // FIXME
+        char buffer[64] = {}; // FIXME
         const char* node_data = NodeDataToString(node, buffer, sizeof(buffer));
         const char* shape = (node->type == NODE_VAR) ? "ellipse" : "record";
 

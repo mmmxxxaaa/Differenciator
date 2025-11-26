@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-
+//FIXME нужно дампить каждое преобразование оптимизации
 static void TreeToStringSimple(Node* node, char* buffer, int* pos, int buffer_size)
 {
     if (node == NULL || *pos >= buffer_size - 1)
@@ -26,7 +26,7 @@ static void TreeToStringSimple(Node* node, char* buffer, int* pos, int buffer_si
             }
             break;
 
-        case NODE_OP:
+        case NODE_OP: //FIXME разбить функции на бинарные и унарные + проверять их (еще в одном месте такое было)
             switch (node->data.op_value)
             {
                 case OP_ADD:
@@ -41,7 +41,7 @@ static void TreeToStringSimple(Node* node, char* buffer, int* pos, int buffer_si
                     break;
                 case OP_MUL:
                     TreeToStringSimple(node->left, buffer, pos, buffer_size);
-                    *pos += snprintf(buffer + *pos, buffer_size - *pos, " * ");
+                    *pos += snprintf(buffer + *pos, buffer_size - *pos, " * "); //FIXME cdot
                     TreeToStringSimple(node->right, buffer, pos, buffer_size);
                     break;
                 case OP_DIV:
@@ -58,6 +58,23 @@ static void TreeToStringSimple(Node* node, char* buffer, int* pos, int buffer_si
                     *pos += snprintf(buffer + *pos, buffer_size - *pos, "\\cos(");
                     TreeToStringSimple(node->right, buffer, pos, buffer_size);
                     *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
+                    break;
+                case OP_POW:
+                    *pos += snprintf(buffer + *pos, buffer_size - *pos, "{");
+                    TreeToStringSimple(node->left, buffer, pos, buffer_size);
+                    *pos += snprintf(buffer + *pos, buffer_size - *pos, "}^{");
+                    TreeToStringSimple(node->right, buffer, pos, buffer_size);
+                    *pos += snprintf(buffer + *pos, buffer_size - *pos, "}");
+                    break;
+                case OP_LN:
+                    *pos += snprintf(buffer + *pos, buffer_size - *pos, "\\ln(");
+                    TreeToStringSimple(node->right, buffer, pos, buffer_size);
+                    *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
+                    break;
+                case OP_EXP:
+                    *pos += snprintf(buffer + *pos, buffer_size - *pos, "e^{");
+                    TreeToStringSimple(node->right, buffer, pos, buffer_size);
+                    *pos += snprintf(buffer + *pos, buffer_size - *pos, "}");
                     break;
                 default:
                     *pos += snprintf(buffer + *pos, buffer_size - *pos, "?");
@@ -156,10 +173,14 @@ TreeErrorType GenerateLatexDump(Tree* tree, VariableTable* var_table, const char
     if (!file)
         return TREE_ERROR_IO;
 
-    fprintf(file, "\\documentclass{article}\n");
+    fprintf(file, "\\documentclass[12pt]{article}\n"); //FIXME
     fprintf(file, "\\usepackage[utf8]{inputenc}\n");
     fprintf(file, "\\usepackage{amsmath}\n");
-    fprintf(file, "\\begin{document}\n\n");
+    fprintf(file, "\\usepackage{geometry}\n");
+    fprintf(file, "\\geometry{a4paper, left=10mm, right=10mm, top=10mm, bottom=10mm}\n");
+    fprintf(file, "\\setlength{\\parindent}{0pt}\n");
+    fprintf(file, "\\setlength{\\parskip}{1em}\n");
+    fprintf(file, "\\begin{document}\n");
 
     TreeErrorType error = DumpOriginalFunction(file, tree, result_value);
     if (error != TREE_ERROR_NO)
@@ -196,10 +217,14 @@ TreeErrorType GenerateLatexDumpWithDerivatives(Tree* tree, Tree** derivative_tre
     if (!file)
         return TREE_ERROR_IO;
 
-    fprintf(file, "\\documentclass{article}\n");
+    fprintf(file, "\\documentclass[12pt]{article}\n"); //FIXME
     fprintf(file, "\\usepackage[utf8]{inputenc}\n");
     fprintf(file, "\\usepackage{amsmath}\n");
-    fprintf(file, "\\begin{document}\n\n");
+    fprintf(file, "\\usepackage{geometry}\n");
+    fprintf(file, "\\geometry{a4paper, left=20mm, right=20mm, top=20mm, bottom=20mm}\n");
+    fprintf(file, "\\setlength{\\parindent}{0pt}\n");
+    fprintf(file, "\\setlength{\\parskip}{1em}\n");
+    fprintf(file, "\\begin{document}\n");
 
     fprintf(file, "\\section*{Mathematical Expression Analysis}\n\n");
 

@@ -140,7 +140,6 @@ static Node* ReadNodeFromBuffer(Tree* tree, char* buffer, size_t buffer_length, 
     if (node == NULL)
         return NULL;
 
-    // Основная логика без do-while
     if (tree != NULL)
         tree->size++;
 
@@ -159,7 +158,6 @@ static Node* ReadNodeFromBuffer(Tree* tree, char* buffer, size_t buffer_length, 
     SkipSpaces(buffer, pos);
     if (buffer[*pos] != ')')
     {
-        // Ошибка формата - освобождаем узел и все поддеревья
         FreeNode(node);
         return NULL;
     }

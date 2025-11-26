@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "io_diff.h"
 #include "dump.h"
 #include "operations.h"
@@ -9,8 +10,10 @@
 #include "latex_dump.h"
 #include "user_interface.h"
 
-int main()
+int main(int argc, const char** argv)
 {
+    const char* input_file = GetDataBaseFilename(argc, argv);
+
     Tree tree = {};
     TreeCtor(&tree);
 
@@ -22,29 +25,38 @@ int main()
     InitTreeLog("differenciator_tree");
     InitTreeLog("differentiator_parse");
 
-    TreeErrorType error_loading = TreeLoad(&tree, "differenciator_tree.txt");
+    TreeErrorType error_loading = TreeLoad(&tree, input_file);
 
     if (error_loading == TREE_ERROR_NO)
     {
-        printf("Дерево успешно загружено!\n");
         TreeBaseDump(&tree);
 
-        printf("\n=== ВЫЧИСЛЕНИЕ ВЫРАЖЕНИЯ ===\n");
-        error = EvaluateTree(&tree, &var_table, &result);
+        for (int i = 0; i < var_table.number_of_variables; i++)
+            RequestVariableValue(&var_table, var_table.variables[i].name);
 
+        TreeErrorType error = EvaluateTree(&tree, &var_table, &result);
+        if (error == TREE_ERROR_NO)
+            printf("Результат вычисления: %.6f\n", result);
+
+        size_t size_before_optimization = CountTreeNodes(tree.root);
+        error = OptimizeTree(&tree);
         if (error == TREE_ERROR_NO)
         {
-            printf("Результат вычисления: %.6f\n", result);
-        }
-        else
-        {
-            printf("Ошибка вычисления: %d\n", error);
-            PrintTreeError(error);
+            size_t size_after_optimization = CountTreeNodes(tree.root);
+            printf("Оптимизация: %zu -> %zu узлов\n",
+                   size_before_optimization, size_after_optimization);
+
+            if (size_before_optimization != size_after_optimization)
+            {
+                error = EvaluateTree(&tree, &var_table, &result);
+                if (error == TREE_ERROR_NO)
+                    printf("Результат после оптимизации: %.6f\n", result);
+            }
         }
 
-        printf("\n=== ВЫЧИСЛЕНИЕ ПРОИЗВОДНЫХ ===\n");
+        char* diff_variable = SelectDifferentiationVariable(&var_table); //выбираем переменную из таблице, по которой будем дифференцировать
 
-        Tree   derivative_trees[kMaxNumberOfDerivative] = {}; //FIXME мб это тоже в структурку?
+        Tree   derivative_trees[kMaxNumberOfDerivative] = {};
         double derivative_results[kMaxNumberOfDerivative] = {};
         int    actual_derivative_count = 0;
 
@@ -53,71 +65,44 @@ int main()
         {
             TreeCtor(&derivative_trees[i]);
 
-            error = DifferentiateTree(current_tree, "x", &derivative_trees[i]);
+            error = DifferentiateTree(current_tree, diff_variable, &derivative_trees[i]);
             if (error != TREE_ERROR_NO)
             {
-                printf("Ошибка вычисления производной порядка %d: %d\n", i + 1, error);
                 TreeDtor(&derivative_trees[i]);
                 break;
             }
 
-            printf("Производная порядка %d успешно вычислена!\n", i + 1);
-            TreeBaseDump(&derivative_trees[i]);
-
+            error = OptimizeTree(&derivative_trees[i]);
             error = EvaluateTree(&derivative_trees[i], &var_table, &derivative_results[i]);
             if (error == TREE_ERROR_NO)
             {
-                printf("Значение производной порядка %d: %.6f\n", i + 1, derivative_results[i]);
-                actual_derivative_count++;
-            }
-            else
-            {
-                printf("Ошибка вычисления значения производной порядка %d\n", i + 1);
-                PrintTreeError(error);
-                derivative_results[i] = 0.0;
+                printf("Производная %d: %.6f\n", i + 1, derivative_results[i]);
                 actual_derivative_count++;
             }
 
             current_tree = &derivative_trees[i];
+            if (i >= 2)
+                break; //FIXME
         }
-
-        printf("\n=== ГЕНЕРАЦИЯ LATEX ДОКУМЕНТА ===\n");
 
         if (actual_derivative_count > 0)
         {
-            Tree** derivative_trees_ptr = (Tree**)calloc(actual_derivative_count, sizeof(Tree*)); //массив указателей на деревья производных
+            Tree** derivative_trees_ptr = (Tree**)calloc(actual_derivative_count, sizeof(Tree*));
             for (int i = 0; i < actual_derivative_count; i++)
                 derivative_trees_ptr[i] = &derivative_trees[i];
 
             error = GenerateLatexDumpWithDerivatives(&tree, derivative_trees_ptr, derivative_results,
-                                                   actual_derivative_count, &var_table,
-                                                   "expression_analysis.tex", result);
+                                                     actual_derivative_count, &var_table,
+                                                     "expression_analysis.tex", result);
 
             free(derivative_trees_ptr);
         }
 
-        if (error == TREE_ERROR_NO)
-        {
-            printf("LaTeX документ успешно создан!\n");
-            if (actual_derivative_count > 0)
-            {
-                printf("Документ содержит производные до %d порядка\n", actual_derivative_count);
-            }
-        }
-        else
-        {
-            printf("Ошибка создания LaTeX документа: %d\n", error);
-        }
-
+        free(diff_variable);
         for (int i = 0; i < actual_derivative_count; i++)
         {
             TreeDtor(&derivative_trees[i]);
         }
-    }
-    else
-    {
-        printf("Ошибка загрузки дерева: %d\n", error);
-        PrintTreeError(error);
     }
 
     CloseTreeLog("differenciator_tree");

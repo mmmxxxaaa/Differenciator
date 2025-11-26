@@ -1,6 +1,7 @@
 #include "user_interface.h"
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 #include "tree_error_types.h"
 
 const char* GetDataBaseFilename(int argc, const char** argv)
@@ -28,6 +29,33 @@ const char* GetTreeErrorString(TreeErrorType error)
         case TREE_ERROR_NO_VARIABLES:       return "Переменные не найдены";
         default:                            return "Неизвестная ошибка";
     }
+}
+
+// функция для выбора переменной дифференцирования
+char* SelectDifferentiationVariable(VariableTable* var_table) //СИГМА СКИБИДИ
+{
+    if (var_table->number_of_variables == 0)
+        return strdup("x");
+
+    printf("Доступные переменные:\n");
+    for (int i = 0; i < var_table->number_of_variables; i++)
+    {
+        printf("%d. %s", i + 1, var_table->variables[i].name);
+
+        double value = 0.0;
+        TreeErrorType error = GetVariableValue(var_table, var_table->variables[i].name, &value);
+        if (error == TREE_ERROR_NO)
+            printf(" (значение: %.6f)", value);
+        printf("\n");
+    }
+
+    printf("Введите номер переменной для дифференцирования (1-%d): ", var_table->number_of_variables);
+
+    int choice = 0;
+    if (scanf("%d", &choice) == 1 && choice >= 1 && choice <= var_table->number_of_variables)
+        return strdup(var_table->variables[choice - 1].name);
+
+    return strdup("x");
 }
 
 void PrintTreeError(TreeErrorType error)

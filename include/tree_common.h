@@ -27,13 +27,22 @@ typedef enum {
     OP_DIV,
     OP_SUB,
     OP_SIN,
-    OP_COS
+    OP_COS,
+    OP_POW,
+    OP_LN,
+    OP_EXP
 } OperationType; //FIXME расширить
 
 typedef struct {
     unsigned int hash;
     char* name;
 } VariableDefinition;
+
+typedef struct {
+    unsigned int hash;
+    const char* name;
+    OperationType op_value;
+} OperationInfo;
 
 typedef union {
     double             num_value;
