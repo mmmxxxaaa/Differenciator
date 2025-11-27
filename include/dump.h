@@ -11,8 +11,6 @@
 
 const int kMaxEscapedDataCapacity = 512;
 
-TreeErrorType TreeBaseDump(Tree* tree);
-
 TreeErrorType GenerateDotFile(Tree* tree, const char* filename);
 void CreateDotNodes(Tree* tree, FILE* dot_file);
 void CreateTreeConnections(Node* node, FILE* dot_file);

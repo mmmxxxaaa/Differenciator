@@ -52,7 +52,7 @@ int FindVariableByHash(VariableTable* ptr_table, unsigned int hash, const char* 
     if (ptr_table->number_of_variables == 0)
         return -1;
 
-    int left = 0; //FIXME хуево, что int?
+    int left = 0; //
     int right = ptr_table->number_of_variables - 1;
 
     while (left <= right)

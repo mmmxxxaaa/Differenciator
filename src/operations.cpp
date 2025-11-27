@@ -9,7 +9,10 @@
 #include "variable_parse.h"
 #include "logic_functions.h"
 #include "tree_base.h"
-
+#include "latex_dump.h"
+//FIXME поменять читалку
+//функции и переменные к гетпэшке
+//кринжовый язык
 // ==================== DSL ДЛЯ СОЗДАНИЯ УЗЛОВ ====================
 #define CREATE_NUM(value)          CreateNode(NODE_NUM, (ValueOfTreeElement){.num_value = (value)}, NULL, NULL)
 #define CREATE_OP(op, left, right) CreateNode(NODE_OP,  (ValueOfTreeElement){.op_value = (op)}, (left), (right))
@@ -321,7 +324,8 @@ static Node* DifferentiateAddSub(Node* node, const char* variable_name, Operatio
     Node* left_deriv  = DifferentiateNode(node->left,  variable_name);
     Node* right_deriv = DifferentiateNode(node->right, variable_name);
 
-    if (!left_deriv || !right_deriv) {
+    if (!left_deriv || !right_deriv)
+    {
         FreeNodes(2, left_deriv, right_deriv);
         return NULL;
     }
@@ -336,25 +340,29 @@ static Node* DifferentiateMul(Node* node, const char* variable_name)
     Node* du_dx = DifferentiateNode(node->left,  variable_name);
     Node* dv_dx = DifferentiateNode(node->right, variable_name);
 
-    if (!u || !v || !du_dx || !dv_dx) {
+    if (!u || !v || !du_dx || !dv_dx)
+    {
         FreeNodes(4, u, v, du_dx, dv_dx);
         return NULL;
     }
 
     Node* term1 = CreateCheckedOp(OP_MUL, u, dv_dx);
-    if (!term1) {
+    if (!term1)
+    {
         FreeNodes(3, v, du_dx, dv_dx);
         return NULL;
     }
 
     Node* term2 = CreateCheckedOp(OP_MUL, v, du_dx);
-    if (!term2) {
+    if (!term2)
+    {
         FreeNodes(2, term1, du_dx);
         return NULL;
     }
 
     Node* result = CreateCheckedOp(OP_ADD, term1, term2);
-    if (!result) {
+    if (!result)
+    {
         FreeNodes(2, term1, term2);
     }
 
@@ -513,23 +521,24 @@ static Node* DifferentiatePowerConstVar(Node* u, Node* v, Node* du_dx, Node* dv_
         return NULL;
 
     Node* u_copy = CopyNode(u);
-    if (!u_copy) {
+    if (!u_copy)
+    {
         FreeNodes(1, a_pow_x);
         return NULL;
     }
 
     Node* ln_a = CreateCheckedUnaryOp(OP_LN, u_copy);
-    if (!ln_a) {
+    if (!ln_a)
+    {
         FreeNodes(2, a_pow_x, u_copy);
         return NULL;
     }
 
     Node* result = CreateCheckedOp(OP_MUL, a_pow_x, ln_a);
-    if (!result) {
+    if (!result)
         FreeNodes(2, a_pow_x, ln_a);
-    } else {
+    else
         FreeNodes(2, du_dx, dv_dx);
-    }
 
     return result;
 }
@@ -759,14 +768,14 @@ TreeErrorType DifferentiateTree(Tree* tree, const char* variable_name, Tree* res
 Node* CreateNodeFromToken(const char* token, Node* parent)
 {
     static OperationInfo operations[] = {
-        {0, "+", OP_ADD},
-        {0, "-", OP_SUB},
-        {0, "*", OP_MUL},
-        {0, "/", OP_DIV},
+        {0, "+",   OP_ADD},
+        {0, "-",   OP_SUB},
+        {0, "*",   OP_MUL},
+        {0, "/",   OP_DIV},
         {0, "sin", OP_SIN},
         {0, "cos", OP_COS},
-        {0, "^", OP_POW},
-        {0, "ln", OP_LN},
+        {0, "^",   OP_POW},
+        {0, "ln",  OP_LN},
         {0, "exp", OP_EXP}
     };
 
@@ -826,14 +835,14 @@ static void ReplaceNode(Node** node_ptr, Node* new_node)
     *node_ptr = new_node;
 
     if (new_node != NULL)
-    {
         new_node->parent = old_node->parent;
-    }
 
     FreeSubtree(old_node);
 }
 
-static TreeErrorType ConstantFoldingOptimization(Node** node)
+// ==================== ФУНКЦИИ ОПТИМИЗАЦИИ С ДАМПОМ ====================
+
+static TreeErrorType ConstantFoldingOptimizationWithDump(Node** node, FILE* tex_file, Tree* tree, VariableTable* var_table)
 {
     if (node == NULL || *node == NULL)
         return TREE_ERROR_NULL_PTR;
@@ -842,14 +851,14 @@ static TreeErrorType ConstantFoldingOptimization(Node** node)
 
     if ((*node)->left != NULL)
     {
-        error = ConstantFoldingOptimization(&(*node)->left);
+        error = ConstantFoldingOptimizationWithDump(&(*node)->left, tex_file, tree, var_table);
         if (error != TREE_ERROR_NO)
             return error;
     }
 
     if ((*node)->right != NULL)
     {
-        error = ConstantFoldingOptimization(&(*node)->right);
+        error = ConstantFoldingOptimizationWithDump(&(*node)->right, tex_file, tree, var_table);
         if (error != TREE_ERROR_NO)
             return error;
     }
@@ -891,13 +900,22 @@ static TreeErrorType ConstantFoldingOptimization(Node** node)
                 if (new_node != NULL)
                 {
                     ReplaceNode(node, new_node);
+
+                    double new_result = 0.0;
+                    if (EvaluateTree(tree, var_table, &new_result) == TREE_ERROR_NO && tex_file != NULL)
+                    {
+                        char description[kMaxTexDescriptionLength] = {0};
+                        snprintf(description, sizeof(description),
+                                "constant folding simplified part of expression to: %.2f", result);
+                        DumpOptimizationStepToFile(tex_file, description, tree, new_result);
+                    }
                 }
             }
         }
         else if ((*node)->left  != NULL && (*node)->left->type  == NODE_NUM &&
                  (*node)->right != NULL && (*node)->right->type == NODE_NUM)
         {
-            double left_val = (*node)->left->data.num_value;
+            double left_val  = (*node)->left->data.num_value;
             double right_val = (*node)->right->data.num_value;
             double result = 0.0;
             bool can_fold = true;
@@ -928,7 +946,18 @@ static TreeErrorType ConstantFoldingOptimization(Node** node)
             {
                 Node* new_node = CREATE_NUM(result);
                 if (new_node != NULL)
+                {
                     ReplaceNode(node, new_node);
+
+                    double new_result = 0.0;
+                    if (EvaluateTree(tree, var_table, &new_result) == TREE_ERROR_NO && tex_file != NULL)
+                    {
+                        char description[kMaxTexDescriptionLength] = {0};
+                        snprintf(description, sizeof(description),
+                                "constant folding simplified part of expression to: %.2f", result);
+                        DumpOptimizationStepToFile(tex_file, description, tree, new_result);
+                    }
+                }
             }
         }
     }
@@ -936,7 +965,7 @@ static TreeErrorType ConstantFoldingOptimization(Node** node)
     return TREE_ERROR_NO;
 }
 
-static TreeErrorType NeutralElementsOptimization(Node** node)
+static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_file, Tree* tree, VariableTable* var_table)
 {
     if (node == NULL || *node == NULL)
         return TREE_ERROR_NULL_PTR;
@@ -945,34 +974,37 @@ static TreeErrorType NeutralElementsOptimization(Node** node)
 
     if ((*node)->left != NULL)
     {
-        error = NeutralElementsOptimization(&(*node)->left);
+        error = NeutralElementsOptimizationWithDump(&(*node)->left, tex_file, tree, var_table);
         if (error != TREE_ERROR_NO)
             return error;
     }
 
     if ((*node)->right != NULL)
     {
-        error = NeutralElementsOptimization(&(*node)->right);
+        error = NeutralElementsOptimizationWithDump(&(*node)->right, tex_file, tree, var_table);
         if (error != TREE_ERROR_NO)
             return error;
     }
 
     if ((*node)->type == NODE_OP)
     {
+        Node* new_node = NULL;
+        const char* description = NULL;
+
         switch ((*node)->data.op_value)
         {
             case OP_ADD:
                 if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
                     is_zero((*node)->right->data.num_value))
                 {
-                    Node* new_node = CopyNode((*node)->left);
-                    ReplaceNode(node, new_node);
+                    new_node = CopyNode((*node)->left);
+                    description = "adding zero simplified";
                 }
                 else if ((*node)->left != NULL && (*node)->left->type == NODE_NUM &&
                          is_zero((*node)->left->data.num_value))
                 {
-                    Node* new_node = CopyNode((*node)->right);
-                    ReplaceNode(node, new_node);
+                    new_node = CopyNode((*node)->right);
+                    description = "adding zero simplified";
                 }
                 break;
 
@@ -980,8 +1012,8 @@ static TreeErrorType NeutralElementsOptimization(Node** node)
                 if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
                     is_zero((*node)->right->data.num_value))
                 {
-                    Node* new_node = CopyNode((*node)->left);
-                    ReplaceNode(node, new_node);
+                    new_node = CopyNode((*node)->left);
+                    description = "- 0 simplified";
                 }
                 break;
 
@@ -991,20 +1023,20 @@ static TreeErrorType NeutralElementsOptimization(Node** node)
                     ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
                      is_zero((*node)->right->data.num_value)))
                 {
-                    Node* new_node = CREATE_NUM(0.0);
-                    ReplaceNode(node, new_node);
+                    new_node = CREATE_NUM(0.0);
+                    description = "mul zero simplified";
                 }
                 else if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
                          is_one((*node)->right->data.num_value))
                 {
-                    Node* new_node = CopyNode((*node)->left);
-                    ReplaceNode(node, new_node);
+                    new_node = CopyNode((*node)->left);
+                    description = "mul one simplified";
                 }
                 else if ((*node)->left != NULL && (*node)->left->type == NODE_NUM &&
                          is_one((*node)->left->data.num_value))
                 {
-                    Node* new_node = CopyNode((*node)->right);
-                    ReplaceNode(node, new_node);
+                    new_node = CopyNode((*node)->right);
+                    description = "mul one simplified";
                 }
                 break;
 
@@ -1014,38 +1046,47 @@ static TreeErrorType NeutralElementsOptimization(Node** node)
                     (*node)->right != NULL &&
                     !((*node)->right->type == NODE_NUM && is_zero((*node)->right->data.num_value)))
                 {
-                    Node* new_node = CREATE_NUM(0.0);
-                    ReplaceNode(node, new_node);
+                    new_node = CREATE_NUM(0.0);
+                    description = "0 / simplified";
                 }
                 else if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
                          is_one((*node)->right->data.num_value))
                 {
-                    Node* new_node = CopyNode((*node)->left);
-                    ReplaceNode(node, new_node);
+                    new_node = CopyNode((*node)->left);
+                    description = " / 1 simplified";
                 }
                 break;
             case OP_POW:
                 if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
                     is_zero((*node)->right->data.num_value))
                 {
-                    Node* new_node = CREATE_NUM(1.0);
-                    ReplaceNode(node, new_node);
+                    new_node = CREATE_NUM(1.0);
+                    description = "^0 simplified";
                 }
                 else if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
                          is_one((*node)->right->data.num_value))
                 {
-                    Node* new_node = CopyNode((*node)->left);
-                    ReplaceNode(node, new_node);
+                    new_node = CopyNode((*node)->left);
+                    description = "^1 simplified";
                 }
                 else if ((*node)->left != NULL && (*node)->left->type == NODE_NUM &&
                          is_one((*node)->left->data.num_value))
                 {
-                    Node* new_node = CREATE_NUM(1.0);
-                    ReplaceNode(node, new_node);
+                    new_node = CREATE_NUM(1.0);
+                    description = "1^ simplified";
                 }
                 break;
             default:
                 break;
+        }
+
+        if (new_node != NULL && description != NULL)
+        {
+            ReplaceNode(node, new_node);
+
+            double new_result = 0.0;
+            if (EvaluateTree(tree, var_table, &new_result) == TREE_ERROR_NO && tex_file != NULL)
+                DumpOptimizationStepToFile(tex_file, description, tree, new_result);
         }
     }
 
@@ -1060,7 +1101,7 @@ size_t CountTreeNodes(Node* node)
     return 1 + CountTreeNodes(node->left) + CountTreeNodes(node->right);
 }
 
-static TreeErrorType OptimizeSubtree(Node** node)
+static TreeErrorType OptimizeSubtreeWithDump(Node** node, FILE* tex_file, Tree* tree, VariableTable* var_table)
 {
     if (node == NULL || *node == NULL)
         return TREE_ERROR_NULL_PTR;
@@ -1073,10 +1114,10 @@ static TreeErrorType OptimizeSubtree(Node** node)
     {
         old_size = new_size;
 
-        error = ConstantFoldingOptimization(node);
+        error = ConstantFoldingOptimizationWithDump(node, tex_file, tree, var_table);
         if (error != TREE_ERROR_NO) return error;
 
-        error = NeutralElementsOptimization(node);
+        error = NeutralElementsOptimizationWithDump(node, tex_file, tree, var_table);
         if (error != TREE_ERROR_NO) return error;
 
         new_size = CountTreeNodes(*node);
@@ -1085,7 +1126,7 @@ static TreeErrorType OptimizeSubtree(Node** node)
     return TREE_ERROR_NO;
 }
 
-TreeErrorType OptimizeTree(Tree* tree)
+TreeErrorType OptimizeTreeWithDump(Tree* tree, FILE* tex_file, VariableTable* var_table)
 {
     if (tree == NULL)
         return TREE_ERROR_NULL_PTR;
@@ -1093,11 +1134,40 @@ TreeErrorType OptimizeTree(Tree* tree)
     if (tree->root == NULL)
         return TREE_ERROR_NULL_PTR;
 
-    TreeErrorType error = OptimizeSubtree(&tree->root);
+    double result_before = 0.0;
+    EvaluateTree(tree, var_table, &result_before);
+
+    if (tex_file != NULL)
+    {
+        fprintf(tex_file, "\\section*{Optimization}\n");
+        fprintf(tex_file, "Before optimization: ");
+
+        char expression[kMaxLengthOfTexExpression] = {0};
+        int pos = 0;
+        TreeToStringSimple(tree->root, expression, &pos, sizeof(expression));
+        fprintf(tex_file, "\\[ %s \\]\n\n", expression);
+        // fprintf(tex_file, "Result before optimization: \\[ %.6f \\]\n\n", result_before);
+    }
+
+    TreeErrorType error = OptimizeSubtreeWithDump(&tree->root, tex_file, tree, var_table);
     if (error != TREE_ERROR_NO)
         return error;
 
     tree->size = CountTreeNodes(tree->root);
+
+    double result_after = 0.0;
+    EvaluateTree(tree, var_table, &result_after);
+
+    if (tex_file != NULL)
+    {
+        fprintf(tex_file, "\\subsection*{Result optimization}\n");
+
+        char expression[kMaxLengthOfTexExpression] = {0};
+        int pos = 0;
+        TreeToStringSimple(tree->root, expression, &pos, sizeof(expression));
+        fprintf(tex_file, "Final expression: \\[ %s \\]\n\n", expression);
+        fprintf(tex_file, "Final result: \\[ %.6f \\]\n\n", result_after);
+    }
 
     return TREE_ERROR_NO;
 }

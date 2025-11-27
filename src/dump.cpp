@@ -50,51 +50,6 @@ static const char* NodeDataToString(const Node* node, char* buffer, size_t buffe
     }
 }
 
-//========================ДЛЯ ПРОСТОГО ДАМПА СО СКОБОЧКАМИ=====================================================
-static TreeErrorType PrintTreeNode(const Node* node)
-{
-    if (node == NULL)
-    {
-        printf("()");
-        return TREE_ERROR_NO;
-    }
-
-    char buffer[64] = {}; //FIXME
-    printf("%s", NodeDataToString(node, buffer, sizeof(buffer)));
-
-    printf("(");
-    if (node->left)
-        PrintTreeNode(node->left);
-
-    if (node->right)
-        PrintTreeNode(node->right);
-    printf(")");
-
-    return TREE_ERROR_NO;
-}
-
-TreeErrorType TreeBaseDump(Tree* tree)
-{
-    if (tree == NULL)
-    {
-        printf("Tree: NULL\n");
-        return TREE_ERROR_NULL_PTR;
-    }
-
-    printf("===TREE DUMP===\n");
-    printf("Tree size: %lu\n", tree->size);
-    printf("Tree structure:\n");
-
-    if (tree->root == NULL)
-        printf("EMPTY TREE");
-    else
-        PrintTreeNode(tree->root);
-
-    putchar('\n');
-    return TREE_ERROR_NO;
-}
-//=========================================================================================================
-
 TreeErrorType GenerateDotFile(Tree* tree, const char* filename)
 {
     assert(tree);
@@ -129,7 +84,7 @@ static void CreateNodeRecursive(Node* node, Tree* tree, FILE* dot_file)
     const char* color = GetNodeColor(node, tree);
     const char* shape = "record"; // форма по умолчанию
 
-    char buffer[64] = {}; //FIXME
+    char buffer[kMaxDotBufferLength] = {};
     const char* node_data = NodeDataToString(node, buffer, sizeof(buffer));
 
     if (node->type == NODE_VAR)
@@ -206,7 +161,7 @@ void CreateTreeConnections(Node* node, FILE* dot_file)
     }
 }
 
-const char* GetNodeColor(Node* node, Tree* tree) //ЭТО ИМЕННО РЕСПЕКТ
+const char* GetNodeColor(Node* node, Tree* tree)
 {
     if (node == tree->root)
         return "lightcoral";
@@ -299,7 +254,7 @@ void WriteTreeInfo(FILE* htm_file, Tree* tree, const char* buffer, size_t buffer
 
         if (tree->root != NULL)
         {
-            char root_buffer[64] = {}; //FIXME
+            char root_buffer[kMaxDotBufferLength] = {};
             const char* root_data_str = NodeDataToString(tree->root, root_buffer, sizeof(root_buffer));
 
             fprintf(htm_file, "<p><b>Адрес корня:</b> %p</p>\n", (void*)tree->root);
@@ -443,7 +398,7 @@ TreeErrorType GenerateLoadProgressDotFile(Tree* tree, LoadProgress* progress, co
         Node* node   = progress->items[i].node;
         size_t depth = progress->items[i].depth;
         const char* color = GetNodeColor(node, tree);
-        char buffer[64] = {}; // FIXME
+        char buffer[kMaxDotBufferLength] = {};
         const char* node_data = NodeDataToString(node, buffer, sizeof(buffer));
         const char* shape = (node->type == NODE_VAR) ? "ellipse" : "record";
 

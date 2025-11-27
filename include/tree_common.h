@@ -12,8 +12,10 @@ const int         kMaxPathDepth                       = 100;
 const int         kTreeDumpAfterAddingElementCapacity = 512;
 const char* const kDefaultDataBaseFilename            = "differenciator_tree.txt";
 const int         kMaxNumberOfDerivative              = 4;
-const int         kMaxLengthOfTexExpression           = 10000;
-
+const int         kMaxLengthOfTexExpression           = 4096;
+const char* const kTexFilename                        = "expression_analysis.tex";
+const int         kMaxDotBufferLength                 = 64;
+const int         kMaxTexDescriptionLength            = 256;
 
 typedef enum {
     NODE_OP,
@@ -31,7 +33,7 @@ typedef enum {
     OP_POW,
     OP_LN,
     OP_EXP
-} OperationType; //FIXME расширить
+} OperationType;
 
 typedef struct {
     unsigned int hash;
