@@ -9,6 +9,49 @@
 #include "tree_common.h"
 #include "latex_dump.h"
 #include "user_interface.h"
+#include "new_great_input.h"
+
+char* ReadExpressionFromFile(const char* filename)
+{
+    FILE* file = fopen(filename, "r");
+    if (!file)
+    {
+        printf("Error: cannot open file %s\n", filename);
+        return NULL;
+    }
+
+    size_t file_size = GetFileSize(file);
+
+    if (file_size <= 0)
+    {
+        fclose(file);
+        return NULL;
+    }
+
+    char* expression = (char*) calloc(file_size + 2, sizeof(char)); // +2 для $ и \0
+    if (!expression)
+    {
+        fclose(file);
+        return NULL;
+    }
+
+    size_t bytes_read = fread(expression, 1, file_size, file);
+    expression[bytes_read] = '\0';
+    fclose(file);
+
+    if (bytes_read > 0 && expression[bytes_read - 1] == '\n')
+    {
+        expression[bytes_read - 1] = '$';
+        expression[bytes_read] = '\0';
+    }
+    else if (expression[bytes_read - 1] != '$')
+    {
+        expression[bytes_read] = '$';
+        expression[bytes_read + 1] = '\0';
+    }
+
+    return expression;
+}
 
 int main(int argc, const char** argv)
 {
@@ -25,12 +68,35 @@ int main(int argc, const char** argv)
     InitTreeLog("differenciator_tree");
     InitTreeLog("differentiator_parse");
 
-    TreeErrorType error_loading = TreeLoad(&tree, input_file);
+    char* expression = ReadExpressionFromFile(input_file);
+    if (!expression)
+    {
+        printf("Error: failed to read expression from file %s\n", input_file);
+        return 1;
+    }
 
-    FILE* tex_file = fopen("full_analysis.tex", "w");
+    printf("Expression from file: %s\n", expression);
+
+    const char* ptr = expression;
+    tree.root = GetG(&ptr, &var_table);
+
+    TreeErrorType error_loading = TREE_ERROR_NO;
+    if (!tree.root)
+    {
+        printf("Error: failed to parse expression\n");
+        error_loading = TREE_ERROR_FORMAT;
+    }
+    else
+    {
+        tree.size = CountTreeNodes(tree.root);
+        printf("Successfully parsed expression. Tree size: %zu\n", tree.size);
+    }
+
+    FILE* tex_file = fopen(kTexFilename, "w");
     if (!tex_file)
     {
         printf("Error: failed to create file full_analysis.tex\n");
+        free(expression);
         return 1;
     }
 
@@ -38,8 +104,6 @@ int main(int argc, const char** argv)
 
     if (error_loading == TREE_ERROR_NO)
     {
-        TreeBaseDump(&tree);
-
         for (int i = 0; i < var_table.number_of_variables; i++)
             RequestVariableValue(&var_table, var_table.variables[i].name);
 
@@ -66,6 +130,7 @@ int main(int argc, const char** argv)
                 error = EvaluateTree(&tree, &var_table, &result);
                 if (error == TREE_ERROR_NO)
                     printf("Result after optimization: %.6f\n", result);
+
             }
         }
 
@@ -105,16 +170,12 @@ int main(int argc, const char** argv)
                 }
 
                 current_tree = &derivative_trees[i];
-                // if (i >= 2)
-                //     break;
             }
 
             free(diff_variable);
 
             for (int i = 0; i < actual_derivative_count; i++)
-            {
                 TreeDtor(&derivative_trees[i]);
-            }
         }
         else
         {
@@ -124,7 +185,7 @@ int main(int argc, const char** argv)
     else
     {
         fprintf(tex_file, "\\section*{Error}\n");
-        fprintf(tex_file, "Failed to load tree from file: %s\n", input_file);
+        fprintf(tex_file, "Failed to parse expression from file: %s\n", input_file);
     }
 
     EndLatexDump(tex_file);
@@ -138,6 +199,7 @@ int main(int argc, const char** argv)
 
     DestroyVariableTable(&var_table);
     TreeDtor(&tree);
+    free(expression);
 
     return 0;
 }

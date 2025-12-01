@@ -14,12 +14,4 @@ TreeErrorType DumpDerivativeToFile(FILE* file, Tree* derivative_tree, double der
 TreeErrorType DumpVariableTableToFile(FILE* file, VariableTable* var_table);
 
 
-// TreeErrorType GenerateLatexDump(Tree* tree, VariableTable* var_table, const char* filename, double result_value);
-// TreeErrorType GenerateLatexDumpWithDerivatives(Tree* tree, Tree** derivative_trees, double* derivative_results,
-//                                               int derivative_count, VariableTable* var_table,
-//                                               const char* filename, double result_value);
-// TreeErrorType DumpOptimizationStep(FILE* file, const char* description, Tree* tree, double result_value);
-// char* TreeToLatex(Node* node);
-// char* NodeToLatex(Node* node);
-
 #endif // LATEX_DUMP_H

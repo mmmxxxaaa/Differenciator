@@ -6,6 +6,8 @@
 #include "tree_common.h"
 #include "variable_parse.h"
 
+
+void  FreeSubtree(Node* node);
 size_t CountTreeNodes(Node* node);
 TreeErrorType EvaluateTree(Tree* tree, VariableTable* var_table, double* result);
 TreeErrorType DifferentiateTree(Tree* tree, const char* variable_name, Tree* result_tree);

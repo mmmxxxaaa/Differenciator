@@ -96,13 +96,40 @@ TreeErrorType StartLatexDump(FILE* file)
     fprintf(file, "\\documentclass[12pt]{article}\n");
     fprintf(file, "\\usepackage[utf8]{inputenc}\n");
     fprintf(file, "\\usepackage{amsmath}\n");
+    fprintf(file, "\\usepackage{breqn}\n");
     fprintf(file, "\\usepackage{geometry}\n");
     fprintf(file, "\\geometry{a4paper, left=20mm, right=20mm, top=20mm, bottom=20mm}\n");
-    fprintf(file, "\\setlength{\\parindent}{0pt}\n");
-    fprintf(file, "\\setlength{\\parskip}{1em}\n");
+    fprintf(file, "\\setlength{\\parindent}{0pt}\n"); //убирает отступы в начале абзацев
+    fprintf(file, "\\setlength{\\parskip}{1em}\n");   //устанавливает расстояние между абзацами в 1em
     fprintf(file, "\\begin{document}\n");
 
-    fprintf(file, "\\section*{Mathematical Expression Analysis}\n\n");
+    fprintf(file, "\\begin{titlepage}\n");
+    fprintf(file, "\\centering\n");
+    fprintf(file, "\\vspace*{2cm}\n"); //добавляет вертикальный отступ указанной величины
+    fprintf(file, "{\\Huge \\textbf{Mathematical Expression Analysis}}\\par\n");
+    fprintf(file, "\\vspace{1cm}\n");
+    fprintf(file, "{\\Large Automatic Differentiation and Optimization}\\par\n");
+    fprintf(file, "\\vspace{2cm}\n");
+    fprintf(file, "{\\large Automatically generated report}\\par\n");
+    fprintf(file, "\\vspace{1cm}\n");
+    fprintf(file, "{\\large \\today}\\par\n");  //par: после команд изменения шрифта (\Huge, \Large, \large) (для ограничения области их действия)
+    fprintf(file, "\\vfill\n");
+    fprintf(file, "{\\large Author: Katkov Maksim Alekseevich}\\par\n");
+    fprintf(file, "\\end{titlepage}\n\n");
+
+    fprintf(file, "\\tableofcontents\n");
+    fprintf(file, "\\vspace{1cm}\n");
+
+    fprintf(file, "\\section*{Introduction}\n");
+    fprintf(file, "\\addcontentsline{toc}{section}{Introduction}\n");
+    fprintf(file, "This document presents a complete analysis of a mathematical expression, including:\n");
+    fprintf(file, "\\begin{itemize}\n");
+    fprintf(file, "\\item Original expression and its evaluation\n");
+    fprintf(file, "\\item Optimization and simplification process\n");
+    fprintf(file, "\\item \\textbf{Lots of derivatives} of various orders\n");
+    fprintf(file, "\\item Variable table with their values\n");
+    fprintf(file, "\\end{itemize}\n");
+    fprintf(file, "\\newpage\n");
 
     return TREE_ERROR_NO;
 }
@@ -126,8 +153,10 @@ TreeErrorType DumpOriginalFunctionToFile(FILE* file, Tree* tree, double result_v
     TreeToStringSimple(tree->root, expression, &pos, sizeof(expression));
 
     fprintf(file, "\\subsection*{Original Expression}\n");
-    fprintf(file, "Expression: \\[ %s \\]\n\n", expression);
-    fprintf(file, "Evaluation result: \\[ %.6f \\]\n\n", result_value);
+    fprintf(file, "Expression:\n");
+    fprintf(file, "\\begin{dmath} %s \\end{dmath}\n\n", expression);
+    fprintf(file, "Evaluation result:\n");
+    fprintf(file, "\\begin{dmath} %.6f \\end{dmath}\n\n", result_value);
 
     return TREE_ERROR_NO;
 }
@@ -144,8 +173,9 @@ TreeErrorType DumpOptimizationStepToFile(FILE* file, const char* description, Tr
     int pos = 0;
     TreeToStringSimple(tree->root, expression, &pos, sizeof(expression));
 
-    fprintf(file, "\\[ %s \\]\n\n", expression);
-    fprintf(file, "Result after simplification: \\[ %.6f \\]\n\n", result_value);
+    fprintf(file, "\\begin{dmath} %s \\end{dmath}\n\n", expression);
+    fprintf(file, "Result after simplification:\n");
+    fprintf(file, "\\begin{dmath} %.6f \\end{dmath}\n\n", result_value);
     fprintf(file, "\\vspace{0.5em}\n");
 
     return TREE_ERROR_NO;
@@ -182,8 +212,10 @@ TreeErrorType DumpDerivativeToFile(FILE* file, Tree* derivative_tree, double der
     }
 
     fprintf(file, "\\subsection*{Derivative of Order %d}\n", derivative_order);
-    fprintf(file, "Derivative: \\[ %s = %s \\]\n\n", derivative_notation, derivative_expr);
-    fprintf(file, "Value of derivative at point: \\[ %s = %.6f \\]\n\n", derivative_notation, derivative_result);
+    fprintf(file, "Derivative:\n");
+    fprintf(file, "\\begin{dmath} %s = %s \\end{dmath}\n\n", derivative_notation, derivative_expr);
+    fprintf(file, "Value of derivative at point:\n");
+    fprintf(file, "\\begin{dmath} %s = %.6f \\end{dmath}\n\n", derivative_notation, derivative_result);
 
     return TREE_ERROR_NO;
 }

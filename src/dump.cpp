@@ -7,16 +7,16 @@
 #include <string.h>
 #include "tree_error_types.h"
 
-static const char* GetNodeTypeString(NodeType type)
-{
-    switch (type)
-    {
-        case NODE_OP:   return "OP";
-        case NODE_NUM:  return "NUM";
-        case NODE_VAR:  return "VAR";
-        default:        return "UNKNOWN";
-    }
-}
+// static const char* GetNodeTypeString(NodeType type)
+// {
+//     switch (type)
+//     {
+//         case NODE_OP:   return "OP";
+//         case NODE_NUM:  return "NUM";
+//         case NODE_VAR:  return "VAR";
+//         default:        return "UNKNOWN";
+//     }
+// }
 
 static const char* NodeDataToString(const Node* node, char* buffer, size_t buffer_size)
 {

@@ -4,9 +4,7 @@
 #include <stdlib.h>
 
 #include "tree_error_types.h"
-
-const int kMaxNOfVariables   = 100;
-const int kMaxVariableLength = 32;
+#include "tree_common.h"
 
 typedef struct {
     char   name[kMaxVariableLength];

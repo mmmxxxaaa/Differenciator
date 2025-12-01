@@ -4,20 +4,24 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdarg.h>
+#include "assert.h"
 #include "tree_error_types.h"
 #include "tree_common.h"
 #include "variable_parse.h"
 #include "logic_functions.h"
 #include "tree_base.h"
 #include "latex_dump.h"
-//FIXME поменять читалку
-//функции и переменные к гетпэшке
-//кринжовый язык
+
+//ДЕЛО СДЕЛАНО оглавление
+//FIXME главы оформить
+//FIXME график функции, производной и Тейлора
+//FIXME касательная в точке
+
 // ==================== DSL ДЛЯ СОЗДАНИЯ УЗЛОВ ====================
 #define CREATE_NUM(value)          CreateNode(NODE_NUM, (ValueOfTreeElement){.num_value = (value)}, NULL, NULL)
 #define CREATE_OP(op, left, right) CreateNode(NODE_OP,  (ValueOfTreeElement){.op_value = (op)}, (left), (right))
 #define CREATE_UNARY_OP(op, right) CreateNode(NODE_OP,  (ValueOfTreeElement){.op_value = (op)}, NULL, (right))
-#define CREATE_VAR(name)           CreateNode(NODE_VAR, (ValueOfTreeElement){.var_definition = {.name = strdup(name), .hash = ComputeHash(name)}}, NULL, NULL)
+#define CREATE_VAR(name)           CreateNode(NODE_VAR, (ValueOfTreeElement){.var_definition = (VariableDefinition){.name = strdup(name), .hash = ComputeHash(name)}}, NULL, NULL)
 
 #define CHECK_AND_CREATE(condition, creator) \
     ((condition) ? (creator) : (NULL))
@@ -31,6 +35,7 @@
                 if (nodes[i]) FreeSubtree(nodes[i]); \
         } \
     } while(0)
+// ===================================================================
 
 // ==================== ПРОТОТИПЫ ФУНКЦИЙ ====================
 static Node* DifferentiateAddSub(Node* node, const char* variable_name, OperationType op);
@@ -45,14 +50,14 @@ static Node* DifferentiatePowerVarConst(Node* u, Node* v, Node* du_dx, Node* dv_
 static Node* DifferentiatePowerConstVar(Node* u, Node* v, Node* du_dx, Node* dv_dx);
 static Node* DifferentiatePowerVarVar  (Node* u, Node* v, Node* du_dx, Node* dv_dx);
 static Node* DifferentiateNode(Node* node, const char* variable_name);
-static void  FreeSubtree(Node* node);
 static void  FreeNodes(int count, ...);
 static bool  ContainsVariable(Node* node, const char* variable_name);
 static void  ReplaceNode(Node** node_ptr, Node* new_node);
 
+
 // ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
 
-static void FreeSubtree(Node* node)
+void FreeSubtree(Node* node)
 {
     if (node == NULL)
         return;
@@ -819,9 +824,7 @@ Node* CreateNodeFromToken(const char* token, Node* parent)
     }
 
     if (node != NULL)
-    {
         node->parent = parent;
-    }
 
     return node;
 }
@@ -1145,8 +1148,7 @@ TreeErrorType OptimizeTreeWithDump(Tree* tree, FILE* tex_file, VariableTable* va
         char expression[kMaxLengthOfTexExpression] = {0};
         int pos = 0;
         TreeToStringSimple(tree->root, expression, &pos, sizeof(expression));
-        fprintf(tex_file, "\\[ %s \\]\n\n", expression);
-        // fprintf(tex_file, "Result before optimization: \\[ %.6f \\]\n\n", result_before);
+        fprintf(tex_file, "\\begin{dmath} %s \\end{dmath}\n\n", expression);
     }
 
     TreeErrorType error = OptimizeSubtreeWithDump(&tree->root, tex_file, tree, var_table);
