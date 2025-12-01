@@ -67,6 +67,7 @@ static void InitializeOperationHashes(ParserContext* context)
         OperationInfo* op = &context->operations[i]; //FIXME почему компилится без явного приведения?
         op->hash = ComputeHash(op->name);
     }
+
     context->hashes_initialized = true;
 }
 
@@ -108,11 +109,7 @@ Node* GetE(const char** s, ParserContext* context)
     while (**s == '+' || **s == '-')
     {
         char op_char = **s;
-        OperationType op;
-        if (op_char == '+')
-            op = OP_ADD;
-        else
-            op = OP_SUB;
+        OperationType op = (op_char == '+') ? OP_ADD : OP_SUB;
 
         (*s)++;
         Node* val2 = GetT(s, context);
@@ -147,11 +144,7 @@ Node* GetT(const char** s, ParserContext* context)
     while (**s == '*' || **s == '/')
     {
         char op_char = **s;
-        OperationType op;
-        if (op_char == '*')
-            op = OP_MUL;
-        else
-            op = OP_DIV;
+        OperationType op = (op_char == '*') ? OP_MUL : OP_DIV;
 
         (*s)++;
         Node* val2 = GetF(s, context);
@@ -237,10 +230,12 @@ Node* GetP(const char** s, ParserContext* context)
     }
 
     Node* result = GetN(s);
-    if (!result)
-        result = GetV(s, context);
+    if (result != NULL) return result;
 
-    return result;
+    result = GetV(s, context);
+    if (result != NULL) return result;
+
+    return NULL;
 }
 
 Node* GetN(const char** s)
@@ -275,40 +270,58 @@ Node* GetV(const char** s, ParserContext* context)
     assert(s);
     assert(context);
 
-    if (**s >= 'a' && **s <= 'z')
+    if (!isalpha(**s))
+        return NULL;
+
+    char var_name[kMaxVariableLength] = {0};
+    int i = 0;
+    const char* start = *s;
+
+    while (**s >= 'a' && **s <= 'z' && i < 255)
     {
-        char var_name[kMaxVariableLength] = {0};
-        int i = 0;
-        const char* start = *s;
-
-        while (**s >= 'a' && **s <= 'z' && i < 255)
-        {
-            var_name[i++] = **s;
-            (*s)++;
-        }
-
-        if (start == *s)
-        {
-            SyntaxError();
-            return NULL;
-        }
-
-        TreeErrorType error = AddVariable(context->var_table, var_name);
-        if (error != TREE_ERROR_NO && error != TREE_ERROR_VARIABLE_ALREADY_EXISTS &&
-            error != TREE_ERROR_REDEFINITION_VARIABLE)
-        {
-            printf("Error adding variable to table: %d\n", error);
-            return NULL;
-        }
-
-        ValueOfTreeElement data = {};
-        data.var_definition.name = strdup(var_name);
-        data.var_definition.hash = ComputeHash(var_name);
-
-        return CreateNode(NODE_VAR, data, NULL, NULL);
+        var_name[i++] = **s;
+        (*s)++;
     }
 
-    return NULL;
+    if (start == *s)
+    {
+        SyntaxError();
+        return NULL;
+    }
+
+    TreeErrorType error = AddVariable(context->var_table, var_name);
+    if (error != TREE_ERROR_NO && error != TREE_ERROR_VARIABLE_ALREADY_EXISTS &&
+        error != TREE_ERROR_REDEFINITION_VARIABLE)
+    {
+        printf("Error adding variable to table: %d\n", error);
+        return NULL;
+    }
+
+    ValueOfTreeElement data = {};
+    data.var_definition.name = strdup(var_name);
+    data.var_definition.hash = ComputeHash(var_name);
+
+    return CreateNode(NODE_VAR, data, NULL, NULL);
+}
+
+static bool FindOperationByName(ParserContext* context, const char* func_name, OperationType* found_op) //используется в GetV
+{
+    assert(context);
+    assert(func_name);
+    assert(found_op);
+
+    unsigned int func_hash = ComputeHash(func_name);
+
+    for (size_t j = 0; j < context->operations_count; j++)
+    {
+        if (func_hash == context->operations[j].hash)
+        {
+            *found_op = context->operations[j].op_value;
+            return true;
+        }
+    }
+
+    return false;
 }
 
 Node* GetFunction(const char** s, ParserContext* context)
@@ -320,35 +333,23 @@ Node* GetFunction(const char** s, ParserContext* context)
 
     const char* original_pos = *s;
 
-    char func_name[256] = {0};
+    char func_name[kMaxFuncNameLength] = {0};
     int i = 0;
 
-    while (**s >= 'a' && **s <= 'z' && i < 255)
+    int chars_read = 0;
+    assert(kMaxFuncNameLength == 256);
+    if(sscanf(*s, "%255[a-z]%n", func_name, &chars_read) == 1)
     {
-        func_name[i++] = **s;
-        (*s)++;
+        *s += chars_read;
     }
-
-    if (i == 0)
+    else
     {
         *s = original_pos;
         return NULL;
     }
 
-    unsigned int func_hash = ComputeHash(func_name);
-
     OperationType found_op = OP_ADD;
-    bool found = false;
-
-    for (size_t j = 0; j < context->operations_count; j++)
-    {
-        if (func_hash == context->operations[j].hash)
-        {
-            found_op = context->operations[j].op_value;
-            found = true;
-            break;
-        }
-    }
+    bool found = FindOperationByName(context, func_name, &found_op);
 
     if (!found)
     {
@@ -356,25 +357,12 @@ Node* GetFunction(const char** s, ParserContext* context)
         return NULL;
     }
 
-    if (**s != '(')
+    Node* arg = GetP(s, context);
+    if (!arg)
     {
         *s = original_pos;
         return NULL;
     }
-
-    (*s)++;
-    Node* arg = GetE(s, context);
-    if (!arg)
-        return NULL;
-
-    if (**s != ')')
-    {
-        printf("Expected closing parenthesis after function %s\n", func_name);
-        FreeSubtree(arg);
-        return NULL;
-    }
-
-    (*s)++;
 
     return CREATE_UNARY_OP(found_op, arg);
 }

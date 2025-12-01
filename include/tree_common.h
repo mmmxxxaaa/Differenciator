@@ -16,8 +16,9 @@ const int         kMaxLengthOfTexExpression           = 4096;
 const char* const kTexFilename                        = "full_analysis.tex";
 const int         kMaxDotBufferLength                 = 64;
 const int         kMaxTexDescriptionLength            = 256;
-const int         kMaxNOfVariables   = 100;
-const int         kMaxVariableLength = 32;
+const int         kMaxNOfVariables                    = 100;
+const int         kMaxVariableLength                  = 32;
+const int         kMaxFuncNameLength                  = 256;
 
 typedef enum {
     NODE_OP,
@@ -36,7 +37,7 @@ typedef enum {
     OP_LN,
     OP_EXP
 } OperationType;
-
+//FIXME можно сделать так чтобы табл переменных держала в себе всю память для переменных а дерево только знало указатели, которые держит таблица
 typedef struct {
     unsigned int hash;
     char* name;

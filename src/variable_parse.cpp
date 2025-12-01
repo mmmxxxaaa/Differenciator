@@ -52,12 +52,12 @@ int FindVariableByHash(VariableTable* ptr_table, unsigned int hash, const char* 
     if (ptr_table->number_of_variables == 0)
         return -1;
 
-    int left = 0; //
+    int left = 0;
     int right = ptr_table->number_of_variables - 1;
 
     while (left <= right)
     {
-        int middle = left + (right - left) / 2;
+        int middle = left + (right - left) / 2; //FIXME вот тут очко, функция компаратора должна подходить
 
         if (ptr_table->variables[middle].hash == hash)
         {

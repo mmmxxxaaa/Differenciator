@@ -44,7 +44,7 @@ char* ReadExpressionFromFile(const char* filename)
         expression[bytes_read - 1] = '$';
         expression[bytes_read] = '\0';
     }
-    else if (expression[bytes_read - 1] != '$')
+    else if (expression[bytes_read - 1] != '$') //ХУЙНЯ это ничего не обрабатывает
     {
         expression[bytes_read] = '$';
         expression[bytes_read + 1] = '\0';
@@ -95,7 +95,7 @@ int main(int argc, const char** argv)
     FILE* tex_file = fopen(kTexFilename, "w");
     if (!tex_file)
     {
-        printf("Error: failed to create file full_analysis.tex\n");
+        printf("Error: failed to create file %s\n", kTexFilename);
         free(expression);
         return 1;
     }
@@ -112,11 +112,9 @@ int main(int argc, const char** argv)
             printf("Calculation result: %.6f\n", result);
 
         DumpOriginalFunctionToFile(tex_file, &tree, result);
-
         DumpVariableTableToFile(tex_file, &var_table);
 
         size_t size_before_optimization = CountTreeNodes(tree.root);
-
         error = OptimizeTreeWithDump(&tree, tex_file, &var_table);
 
         if (error == TREE_ERROR_NO)
@@ -133,6 +131,54 @@ int main(int argc, const char** argv)
 
             }
         }
+//
+//         // ==================================================
+//         // ОДИН ГРАФИК ФУНКЦИИ
+//         // ==================================================
+//         bool has_x_variable = false;
+//         double x_value = 0.0;
+//
+//         // Проверяем наличие переменной x в таблице
+//         for (int i = 0; i < var_table.number_of_variables; i++)
+//         {
+//             if (strcmp(var_table.variables[i].name, "x") == 0)
+//             {
+//                 has_x_variable = true;
+//                 x_value = var_table.variables[i].value;
+//                 break;
+//             }
+//         }
+//
+//         if (has_x_variable)
+//         {
+//             fprintf(tex_file, "\\section*{Graph of the Function}\n");
+//
+//             char latex_expr[kMaxLengthOfTexExpression] = {0};
+//             int pos = 0;
+//             TreeToStringSimple(tree.root, latex_expr, &pos, sizeof(latex_expr));
+//
+//             char* pgfplot_expr = ConvertLatexToPGFPlot(latex_expr);
+//             if (pgfplot_expr)
+//             {
+//                 printf("Plot expression: %s\n", pgfplot_expr);
+//
+//                 double x_min = x_value - 5.0; //FIXME пока так
+//                 double x_max = x_value + 5.0;
+//
+//                 AddLatexPlot(tex_file, pgfplot_expr, x_min, x_max, "Function Graph");
+//                 free(pgfplot_expr);
+//             }
+//             else
+//             {
+//                 fprintf(tex_file, "Failed to convert expression for plotting.\n");
+//             }
+//         }
+//         else
+//         {
+//             fprintf(tex_file, "\\section*{Graph of the Function}\n");
+//             fprintf(tex_file, "Cannot plot graph: variable 'x' not found in expression.\n");
+//         }
+//         // ==================================================
 
         fprintf(tex_file, "\\section*{Differentiation}\n");
 

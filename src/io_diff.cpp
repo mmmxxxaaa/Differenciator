@@ -49,10 +49,7 @@ size_t GetFileSize(FILE* file)
     fseek(file, 0, SEEK_SET);
 
     if (file_size_long <= 0)
-    {
-        fclose(file);
         return 0;
-    }
 
     return (size_t)file_size_long;
 }

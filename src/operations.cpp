@@ -11,6 +11,7 @@
 #include "logic_functions.h"
 #include "tree_base.h"
 #include "latex_dump.h"
+#include "dump.h"
 
 //ДЕЛО СДЕЛАНО оглавление
 //FIXME главы оформить
@@ -22,7 +23,7 @@
 #define CREATE_OP(op, left, right) CreateNode(NODE_OP,  (ValueOfTreeElement){.op_value = (op)}, (left), (right))
 #define CREATE_UNARY_OP(op, right) CreateNode(NODE_OP,  (ValueOfTreeElement){.op_value = (op)}, NULL, (right))
 #define CREATE_VAR(name)           CreateNode(NODE_VAR, (ValueOfTreeElement){.var_definition = (VariableDefinition){.name = strdup(name), .hash = ComputeHash(name)}}, NULL, NULL)
-
+//DSL которая может копировать поддеревья и диффференцирование
 #define CHECK_AND_CREATE(condition, creator) \
     ((condition) ? (creator) : (NULL))
 
@@ -209,6 +210,7 @@ static TreeErrorType EvaluateTreeRecursive(Node* node, VariableTable* var_table,
                 {
                     return error;
                 }
+
 
                 *result = value;
                 return TREE_ERROR_NO;
@@ -605,7 +607,7 @@ static Node* DifferentiatePowerVarVar(Node* u, Node* v, Node* du_dx, Node* dv_dx
 
     return result;
 }
-
+//FIXME DSL-ка уберет тела этих функций и все эти тела будут создаваться этими макросами в свитч-кейсе
 static Node* DifferentiatePow(Node* node, const char* variable_name)
 {
     Node* u = CopyNode(node->left);
@@ -751,7 +753,7 @@ static Node* DifferentiateNode(Node* node, const char* variable_name)
             return CREATE_NUM(0.0);
     }
 }
-
+//FIXME обсёр со скобками
 TreeErrorType DifferentiateTree(Tree* tree, const char* variable_name, Tree* result_tree)
 {
     if (tree == NULL || variable_name == NULL || result_tree == NULL)
@@ -766,7 +768,7 @@ TreeErrorType DifferentiateTree(Tree* tree, const char* variable_name, Tree* res
 
     result_tree->root = derivative_root;
     result_tree->size = CountTreeNodes(derivative_root);
-
+    // TreeDump(derivative_root, "vova_hochet_glyanut");//FIXME
     return TREE_ERROR_NO;
 }
 
@@ -959,15 +961,17 @@ static TreeErrorType ConstantFoldingOptimizationWithDump(Node** node, FILE* tex_
                         snprintf(description, sizeof(description),
                                 "constant folding simplified part of expression to: %.2f", result);
                         DumpOptimizationStepToFile(tex_file, description, tree, new_result);
+                        TreeDump(tree, "vova_hochet_glyanut.htm"); //ЭТО ИМЕННО РЕСПЕКТ
                     }
                 }
             }
         }
     }
-
+//FIXME создать структуру дифференциатора
     return TREE_ERROR_NO;
+//FIXME приоритет вычисляется только во время дампа, хранить приоритет в структуре ноды, для чисел и переменных низший приоритет
 }
-
+//FIXME дампить на уровень выше этих функций, description просто через аргументы передавать
 static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_file, Tree* tree, VariableTable* var_table)
 {
     if (node == NULL || *node == NULL)
@@ -1089,7 +1093,10 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
 
             double new_result = 0.0;
             if (EvaluateTree(tree, var_table, &new_result) == TREE_ERROR_NO && tex_file != NULL)
+            {
                 DumpOptimizationStepToFile(tex_file, description, tree, new_result);
+                TreeDump(tree, "vova_hochet_glyanut.htm"); //ЭТО ИМЕННО РЕСПЕКТ
+            }
         }
     }
 

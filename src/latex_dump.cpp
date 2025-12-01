@@ -3,7 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-
+//FIXME в GETP конец переписать нормально емае
+//FIXME в GETN инвертировать условие и вообще везде нахуй
 void TreeToStringSimple(Node* node, char* buffer, int* pos, int buffer_size)
 {
     if (node == NULL || *pos >= buffer_size - 1)
@@ -12,7 +13,7 @@ void TreeToStringSimple(Node* node, char* buffer, int* pos, int buffer_size)
     switch (node->type)
     {
         case NODE_NUM:
-            *pos += snprintf(buffer + *pos, buffer_size - *pos, "%.2f", node->data.num_value);
+            *pos += snprintf(buffer + *pos, buffer_size - *pos, "%g", node->data.num_value);
             break;
 
         case NODE_VAR:
@@ -46,7 +47,7 @@ void TreeToStringSimple(Node* node, char* buffer, int* pos, int buffer_size)
                     break;
                 case OP_DIV:
                     *pos += snprintf(buffer + *pos, buffer_size - *pos, "\\frac{");
-                    TreeToStringSimple(node->left, buffer, pos, buffer_size);
+                    TreeToStringSimple(node->left,  buffer, pos, buffer_size);
                     *pos += snprintf(buffer + *pos, buffer_size - *pos, "}{");
                     TreeToStringSimple(node->right, buffer, pos, buffer_size);
                     *pos += snprintf(buffer + *pos, buffer_size - *pos, "}");
@@ -60,7 +61,7 @@ void TreeToStringSimple(Node* node, char* buffer, int* pos, int buffer_size)
                     *pos += snprintf(buffer + *pos, buffer_size - *pos, "\\cos(");
                     TreeToStringSimple(node->right, buffer, pos, buffer_size);
                     *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
-                    break;
+                    break; //FIXME проеб со скобками, надо хранить приоритеты операций
                 case OP_POW:
                     *pos += snprintf(buffer + *pos, buffer_size - *pos, "{");
                     TreeToStringSimple(node->left, buffer, pos, buffer_size);
@@ -88,6 +89,92 @@ void TreeToStringSimple(Node* node, char* buffer, int* pos, int buffer_size)
     }
 }
 
+char* ConvertLatexToPGFPlot(const char* latex_expr)
+{
+    if (!latex_expr)
+        return NULL;
+
+    size_t len = strlen(latex_expr);
+    char* result = (char*)calloc(len * 2 + 1, sizeof(char));
+    if (!result)
+        return NULL;
+
+    char* dest = result;
+    const char* src = latex_expr;
+
+    while (*src)
+    {
+        if (strncmp(src, "\\sin", 4) == 0)
+        {
+            strcpy(dest, "sin");
+            dest += 3;
+            src += 4;
+        }
+        else if (strncmp(src, "\\cos", 4) == 0)
+        {
+            strcpy(dest, "cos");
+            dest += 3;
+            src += 4;
+        }
+        else if (strncmp(src, "\\ln", 3) == 0)
+        {
+            strcpy(dest, "log");
+            dest += 3;
+            src += 3;
+        }
+        else if (strncmp(src, "\\cdot", 5) == 0)
+        {
+            *dest++ = '*';
+            src += 5;
+        }
+        else if (strncmp(src, "\\frac", 5) == 0)
+        {
+            // \frac{a}{b} -> (a)/(b)
+            strcpy(dest, "( )/( )");
+            dest += 7;
+            src += 5;
+            while (*src && *src != '}')
+                src++;
+            if (*src) src++;  // Пропускаем }
+            while (*src && *src != '}')
+                src++;
+            if (*src)
+                src++;  // Пропускаем }
+        }
+        else if (strncmp(src, "e^{", 3) == 0)
+        {
+            // e^{x} -> exp(x)
+            strcpy(dest, "exp(");
+            dest += 4;
+            src += 3;
+        }
+        else if (src[0] == '^' && src[1] == '{')
+        {
+            //^{x} -> ^(x)
+            *dest++ = '^';
+            *dest++ = '(';
+            src += 2;  // Пропускаем ^{
+        }
+        else if (*src == '{' || *src == '}')
+        {
+            if (*(src-1) == '^' || *(src+1) == '^')
+            {
+                // Для степеней {} -> ()
+                if (*src == '{') *dest++ = '(';
+                if (*src == '}') *dest++ = ')';
+            }
+            src++;
+        }
+        else
+        {
+            *dest++ = *src++;
+        }
+    }
+
+    *dest = '\0';
+    return result;
+}
+
 TreeErrorType StartLatexDump(FILE* file)
 {
     if (file == NULL)
@@ -97,6 +184,10 @@ TreeErrorType StartLatexDump(FILE* file)
     fprintf(file, "\\usepackage[utf8]{inputenc}\n");
     fprintf(file, "\\usepackage{amsmath}\n");
     fprintf(file, "\\usepackage{breqn}\n");
+
+    fprintf(file, "\\usepackage{pgfplots}\n");
+    fprintf(file, "\\pgfplotsset{compat=1.18}\n");
+
     fprintf(file, "\\usepackage{geometry}\n");
     fprintf(file, "\\geometry{a4paper, left=20mm, right=20mm, top=20mm, bottom=20mm}\n");
     fprintf(file, "\\setlength{\\parindent}{0pt}\n"); //убирает отступы в начале абзацев
@@ -140,6 +231,45 @@ TreeErrorType EndLatexDump(FILE* file)
         return TREE_ERROR_NULL_PTR;
 
     fprintf(file, "\\end{document}\n");
+    return TREE_ERROR_NO;
+}
+
+TreeErrorType AddLatexPlot(FILE* file, const char* function_formula, //СИГМА СКИБИДИ
+                          double x_min, double x_max, const char* title)
+{
+    if (file == NULL)
+        return TREE_ERROR_NULL_PTR;
+
+    fprintf(file, "\\begin{figure}[h]\n");
+    fprintf(file, "\\centering\n");
+    fprintf(file, "\\begin{tikzpicture}\n");
+    fprintf(file, "\\begin{axis}[\n");
+    fprintf(file, "    width=0.8\\textwidth,\n"); // Ширина графика"
+    fprintf(file, "    height=0.6\\textwidth,\n"); // Высота"
+    fprintf(file, "    axis lines = middle,\n");
+    fprintf(file, "    xlabel = {$x$},\n");   //Подпись оси X
+    fprintf(file, "    ylabel = {$f(x)$},\n"); //Подпись оси Y
+    fprintf(file, "    grid = major,\n"); // Включить сетку
+    fprintf(file, "    grid style = {dashed, gray!30},\n"); // Стиль сетки
+    fprintf(file, "    legend pos = north west,\n"); // Положение легенд
+    fprintf(file, "    title = {%s},\n", title);
+    fprintf(file, "    domain = %f:%f,\n", x_min, x_max); // Область определения
+    fprintf(file, "    samples = 200,\n"); /// Количество точек
+    fprintf(file, "    trig format=rad\n"); //Углы в радианах
+
+    fprintf(file, "]\n");
+
+    fprintf(file, "\\addplot[blue, thick, smooth] {%s};\n", function_formula);
+    fprintf(file, "\\addlegendentry{$f(x) = %s$}\n", function_formula);
+
+    //FIXME сюда ТЕЙЛОРА
+
+    fprintf(file, "\\end{axis}\n");
+    fprintf(file, "\\end{tikzpicture}\n");
+    fprintf(file, "\\caption{График функции $f(x) = %s$}\n", function_formula);
+    fprintf(file, "\\end{figure}\n");
+    fprintf(file, "\\vspace{1cm}\n");
+
     return TREE_ERROR_NO;
 }
 

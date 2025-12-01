@@ -3,11 +3,16 @@
 
 #include "tree_base.h"
 #include "variable_parse.h"
+
 #include <stdio.h>
 
 void          TreeToStringSimple(Node* node, char* buffer, int* pos, int buffer_size);
+char*         ConvertLatexToPGFPlot(const char* latex_expr);
+
 TreeErrorType StartLatexDump(FILE* file);
 TreeErrorType EndLatexDump(FILE* file);
+TreeErrorType AddLatexPlot(FILE* file, const char* function_formula, //СИГМА СКИБИДИ
+                          double x_min, double x_max, const char* title);
 TreeErrorType DumpOriginalFunctionToFile(FILE* file, Tree* tree, double result_value);
 TreeErrorType DumpOptimizationStepToFile(FILE* file, const char* description, Tree* tree, double result_value);
 TreeErrorType DumpDerivativeToFile(FILE* file, Tree* derivative_tree, double derivative_result, int derivative_order);

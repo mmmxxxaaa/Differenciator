@@ -43,7 +43,7 @@ static const char* NodeDataToString(const Node* node, char* buffer, size_t buffe
             snprintf(buffer, buffer_size, "%.2f", node->data.num_value);
             return buffer;
         case NODE_VAR:
-            snprintf(buffer, buffer_size, "var_%zu", node->data.var_definition.hash);
+            snprintf(buffer, buffer_size, "var: ", node->data.var_definition.name);
             return buffer;
         default:
             return "?UNK";
