@@ -71,18 +71,18 @@ static void InitializeOperationHashes(ParserContext* context)
     context->hashes_initialized = true;
 }
 
-Node* GetG(const char** s, VariableTable* var_table)
+Node* GetG(const char** string, VariableTable* var_table)
 {
-    assert(s);
+    assert(string);
     assert(var_table);
 
     ParserContext* context = CreateParserContext(var_table);
     if (!context)
         return NULL;
 
-    Node* val = GetE(s, context);
+    Node* val = GetE(string, context);
 
-    if (**s != '$')
+    if (**string != '$')
     {
         printf("Expected end of expression '$'\n");
         SyntaxError();
@@ -97,22 +97,22 @@ Node* GetG(const char** s, VariableTable* var_table)
     return val;
 }
 
-Node* GetE(const char** s, ParserContext* context)
+Node* GetE(const char** string, ParserContext* context)
 {
-    assert(s);
+    assert(string);
     assert(context);
 
-    Node* val = GetT(s, context);
+    Node* val = GetT(string, context);
     if (!val)
         return NULL;
 
-    while (**s == '+' || **s == '-')
+    while (**string == '+' || **string == '-')
     {
-        char op_char = **s;
+        char op_char = **string;
         OperationType op = (op_char == '+') ? OP_ADD : OP_SUB;
 
-        (*s)++;
-        Node* val2 = GetT(s, context);
+        (*string)++;
+        Node* val2 = GetT(string, context);
         if (!val2)
         {
             FreeSubtree(val);
@@ -132,22 +132,22 @@ Node* GetE(const char** s, ParserContext* context)
     return val;
 }
 
-Node* GetT(const char** s, ParserContext* context)
+Node* GetT(const char** string, ParserContext* context)
 {
-    assert(s);
+    assert(string);
     assert(context);
 
-    Node* val = GetF(s, context);
+    Node* val = GetF(string, context);
     if (!val)
         return NULL;
 
-    while (**s == '*' || **s == '/')
+    while (**string == '*' || **string == '/')
     {
-        char op_char = **s;
+        char op_char = **string;
         OperationType op = (op_char == '*') ? OP_MUL : OP_DIV;
 
-        (*s)++;
-        Node* val2 = GetF(s, context);
+        (*string)++;
+        Node* val2 = GetF(string, context);
         if (!val2)
         {
             FreeSubtree(val);
@@ -167,19 +167,19 @@ Node* GetT(const char** s, ParserContext* context)
     return val;
 }
 
-Node* GetF(const char** s, ParserContext* context)
+Node* GetF(const char** string, ParserContext* context)
 {
-    assert(s);
+    assert(string);
     assert(context);
 
-    Node* val = GetP(s, context);
+    Node* val = GetP(string, context);
     if (!val)
         return NULL;
 
-    while (**s == '^')
+    while (**string == '^')
     {
-        (*s)++;
-        Node* exponent = GetP(s, context);
+        (*string)++;
+        Node* exponent = GetP(string, context);
         if (!exponent)
         {
             FreeSubtree(val);
@@ -199,23 +199,23 @@ Node* GetF(const char** s, ParserContext* context)
     return val;
 }
 
-Node* GetP(const char** s, ParserContext* context)
+Node* GetP(const char** string, ParserContext* context)
 {
-    assert(s);
+    assert(string);
     assert(context);
 
-    Node* func_node = GetFunction(s, context);
+    Node* func_node = GetFunction(string, context);
     if (func_node)
         return func_node;
 
-    if (**s == '(')
+    if (**string == '(')
     {
-        (*s)++;
-        Node* val = GetE(s, context);
+        (*string)++;
+        Node* val = GetE(string, context);
         if (!val)
             return NULL;
 
-        if (**s != ')')
+        if (**string != ')')
         {
             printf("Expected closing ')'\n");
             SyntaxError();
@@ -224,36 +224,36 @@ Node* GetP(const char** s, ParserContext* context)
         }
         else
         {
-            (*s)++;
+            (*string)++;
         }
         return val;
     }
 
-    Node* result = GetN(s);
+    Node* result = GetN(string);
     if (result != NULL) return result;
 
-    result = GetV(s, context);
+    result = GetV(string, context);
     if (result != NULL) return result;
 
     return NULL;
 }
 
-Node* GetN(const char** s)
+Node* GetN(const char** string)
 {
-    assert(s);
+    assert(string);
 
-    if (isdigit(**s))
+    if (isdigit(**string))
     {
         int val = 0;
-        const char* start = *s;
+        const char* start = *string;
 
-        while ('0' <= **s && **s <= '9')
+        while ('0' <= **string && **string <= '9')
         {
-            val = **s - '0' + val * 10;
-            (*s)++;
+            val = **string - '0' + val * 10;
+            (*string)++;
         }
 
-        if (start == *s)
+        if (start == *string)
         {
             SyntaxError();
             return NULL;
@@ -265,25 +265,25 @@ Node* GetN(const char** s)
     return NULL;
 }
 
-Node* GetV(const char** s, ParserContext* context)
+Node* GetV(const char** string, ParserContext* context)
 {
-    assert(s);
+    assert(string);
     assert(context);
 
-    if (!isalpha(**s))
+    if (!isalpha(**string))
         return NULL;
 
     char var_name[kMaxVariableLength] = {0};
     int i = 0;
-    const char* start = *s;
+    const char* start = *string;
 
-    while (**s >= 'a' && **s <= 'z' && i < 255)
+    while (**string >= 'a' && **string <= 'z' && i < 255)
     {
-        var_name[i++] = **s;
-        (*s)++;
+        var_name[i++] = **string;
+        (*string)++;
     }
 
-    if (start == *s)
+    if (start == *string)
     {
         SyntaxError();
         return NULL;
@@ -324,27 +324,26 @@ static bool FindOperationByName(ParserContext* context, const char* func_name, O
     return false;
 }
 
-Node* GetFunction(const char** s, ParserContext* context)
+Node* GetFunction(const char** string, ParserContext* context)
 {
-    assert(s);
+    assert(string);
     assert(context);
 
     InitializeOperationHashes(context);
 
-    const char* original_pos = *s;
+    const char* original_pos = *string;
 
     char func_name[kMaxFuncNameLength] = {0};
-    int i = 0;
 
     int chars_read = 0;
     assert(kMaxFuncNameLength == 256);
-    if(sscanf(*s, "%255[a-z]%n", func_name, &chars_read) == 1)
+    if(sscanf(*string, "%255[a-z]%n", func_name, &chars_read) == 1)
     {
-        *s += chars_read;
+        *string += chars_read;
     }
     else
     {
-        *s = original_pos;
+        *string = original_pos;
         return NULL;
     }
 
@@ -353,14 +352,14 @@ Node* GetFunction(const char** s, ParserContext* context)
 
     if (!found)
     {
-        *s = original_pos;
+        *string = original_pos;
         return NULL;
     }
 
-    Node* arg = GetP(s, context);
+    Node* arg = GetP(string, context);
     if (!arg)
     {
-        *s = original_pos;
+        *string = original_pos;
         return NULL;
     }
 

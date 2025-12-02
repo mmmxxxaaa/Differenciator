@@ -3,8 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-//FIXME в GETP конец переписать нормально емае
-//FIXME в GETN инвертировать условие и вообще везде нахуй
+
 void TreeToStringSimple(Node* node, char* buffer, int* pos, int buffer_size)
 {
     if (node == NULL || *pos >= buffer_size - 1)
@@ -18,69 +17,143 @@ void TreeToStringSimple(Node* node, char* buffer, int* pos, int buffer_size)
 
         case NODE_VAR:
             if (node->data.var_definition.name)
-            {
                 *pos += snprintf(buffer + *pos, buffer_size - *pos, "%s", node->data.var_definition.name);
-            }
             else
-            {
                 *pos += snprintf(buffer + *pos, buffer_size - *pos, "?");
-            }
             break;
 
         case NODE_OP:
-            switch (node->data.op_value)
             {
-                case OP_ADD:
-                    TreeToStringSimple(node->left, buffer, pos, buffer_size);
-                    *pos += snprintf(buffer + *pos, buffer_size - *pos, " + ");
-                    TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                    break;
-                case OP_SUB:
-                    TreeToStringSimple(node->left, buffer, pos, buffer_size);
-                    *pos += snprintf(buffer + *pos, buffer_size - *pos, " - ");
-                    TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                    break;
-                case OP_MUL:
-                    TreeToStringSimple(node->left, buffer, pos, buffer_size);
-                    *pos += snprintf(buffer + *pos, buffer_size - *pos, " \\cdot ");
-                    TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                    break;
-                case OP_DIV:
-                    *pos += snprintf(buffer + *pos, buffer_size - *pos, "\\frac{");
-                    TreeToStringSimple(node->left,  buffer, pos, buffer_size);
-                    *pos += snprintf(buffer + *pos, buffer_size - *pos, "}{");
-                    TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                    *pos += snprintf(buffer + *pos, buffer_size - *pos, "}");
-                    break;
-                case OP_SIN:
-                    *pos += snprintf(buffer + *pos, buffer_size - *pos, "\\sin(");
-                    TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                    *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
-                    break;
-                case OP_COS:
-                    *pos += snprintf(buffer + *pos, buffer_size - *pos, "\\cos(");
-                    TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                    *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
-                    break; //FIXME проеб со скобками, надо хранить приоритеты операций
-                case OP_POW:
-                    *pos += snprintf(buffer + *pos, buffer_size - *pos, "{");
-                    TreeToStringSimple(node->left, buffer, pos, buffer_size);
-                    *pos += snprintf(buffer + *pos, buffer_size - *pos, "}^{");
-                    TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                    *pos += snprintf(buffer + *pos, buffer_size - *pos, "}");
-                    break;
-                case OP_LN:
-                    *pos += snprintf(buffer + *pos, buffer_size - *pos, "\\ln(");
-                    TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                    *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
-                    break;
-                case OP_EXP:
-                    *pos += snprintf(buffer + *pos, buffer_size - *pos, "e^{");
-                    TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                    *pos += snprintf(buffer + *pos, buffer_size - *pos, "}");
-                    break;
-                default:
-                    *pos += snprintf(buffer + *pos, buffer_size - *pos, "?");
+                bool left_needs_parentheses = false;
+                bool right_needs_parentheses = false;
+
+                if (node->left && node->left->type == NODE_OP)
+                {
+                    left_needs_parentheses = (node->left->priority < node->priority);
+                }
+
+                if (node->right && node->right->type == NODE_OP)
+                {
+                    right_needs_parentheses = (node->right->priority < node->priority) ||
+                                              (node->data.op_value == OP_SUB && node->right->priority <= node->priority) ||
+                                              (node->data.op_value == OP_DIV && node->right->priority <= node->priority);
+                }
+
+                switch (node->data.op_value)
+                {
+                    case OP_ADD:
+                        if (left_needs_parentheses)
+                        {
+                            *pos += snprintf(buffer + *pos, buffer_size - *pos, "(");
+                            TreeToStringSimple(node->left, buffer, pos, buffer_size);
+                            *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
+                        }
+                        else
+                        {
+                            TreeToStringSimple(node->left, buffer, pos, buffer_size);
+                        }
+
+                        *pos += snprintf(buffer + *pos, buffer_size - *pos, " + ");
+
+                        if (right_needs_parentheses)
+                        {
+                            *pos += snprintf(buffer + *pos, buffer_size - *pos, "(");
+                            TreeToStringSimple(node->right, buffer, pos, buffer_size);
+                            *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
+                        }
+                        else
+                        {
+                            TreeToStringSimple(node->right, buffer, pos, buffer_size);
+                        }
+                        break;
+                    case OP_SUB:
+                        if (left_needs_parentheses)
+                        {
+                            *pos += snprintf(buffer + *pos, buffer_size - *pos, "(");
+                            TreeToStringSimple(node->left, buffer, pos, buffer_size);
+                            *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
+                        }
+                        else
+                        {
+                            TreeToStringSimple(node->left, buffer, pos, buffer_size);
+                        }
+
+                        *pos += snprintf(buffer + *pos, buffer_size - *pos, " - ");
+
+                        if (right_needs_parentheses)
+                        {
+                            *pos += snprintf(buffer + *pos, buffer_size - *pos, "(");
+                            TreeToStringSimple(node->right, buffer, pos, buffer_size);
+                            *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
+                        }
+                        else
+                        {
+                            TreeToStringSimple(node->right, buffer, pos, buffer_size);
+                        }
+                        break;
+
+                    case OP_MUL:
+                        if (left_needs_parentheses)
+                        {
+                            *pos += snprintf(buffer + *pos, buffer_size - *pos, "(");
+                            TreeToStringSimple(node->left, buffer, pos, buffer_size);
+                            *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
+                        }
+                        else
+                        {
+                            TreeToStringSimple(node->left, buffer, pos, buffer_size);
+                        }
+
+                        *pos += snprintf(buffer + *pos, buffer_size - *pos, " \\cdot ");
+
+                        if (right_needs_parentheses)
+                        {
+                            *pos += snprintf(buffer + *pos, buffer_size - *pos, "(");
+                            TreeToStringSimple(node->right, buffer, pos, buffer_size);
+                            *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
+                        }
+                        else
+                        {
+                            TreeToStringSimple(node->right, buffer, pos, buffer_size);
+                        }
+                        break;
+                    case OP_DIV:
+                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "\\frac{");
+                        TreeToStringSimple(node->left,  buffer, pos, buffer_size);
+                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "}{");
+                        TreeToStringSimple(node->right, buffer, pos, buffer_size);
+                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "}");
+                        break;
+                    case OP_SIN:
+                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "\\sin(");
+                        TreeToStringSimple(node->right, buffer, pos, buffer_size);
+                        *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
+                        break;
+                    case OP_COS:
+                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "\\cos(");
+                        TreeToStringSimple(node->right, buffer, pos, buffer_size);
+                        *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
+                        break;
+                    case OP_POW:
+                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "{");
+                        TreeToStringSimple(node->left, buffer, pos, buffer_size);
+                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "}^{");
+                        TreeToStringSimple(node->right, buffer, pos, buffer_size);
+                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "}");
+                        break;
+                    case OP_LN:
+                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "\\ln(");
+                        TreeToStringSimple(node->right, buffer, pos, buffer_size);
+                        *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
+                        break;
+                    case OP_EXP:
+                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "e^{");
+                        TreeToStringSimple(node->right, buffer, pos, buffer_size);
+                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "}");
+                        break;
+                    default:
+                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "?");
+                }
             }
             break;
 
@@ -118,8 +191,8 @@ char* ConvertLatexToPGFPlot(const char* latex_expr)
         }
         else if (strncmp(src, "\\ln", 3) == 0)
         {
-            strcpy(dest, "log");
-            dest += 3;
+            strcpy(dest, "ln");
+            dest += 2;
             src += 3;
         }
         else if (strncmp(src, "\\cdot", 5) == 0)
@@ -208,7 +281,7 @@ TreeErrorType StartLatexDump(FILE* file)
     fprintf(file, "{\\large Author: Katkov Maksim Alekseevich}\\par\n");
     fprintf(file, "\\end{titlepage}\n\n");
 
-    fprintf(file, "\\tableofcontents\n");
+    // fprintf(file, "\\tableofcontents\n");
     fprintf(file, "\\vspace{1cm}\n");
 
     fprintf(file, "\\section*{Introduction}\n");
@@ -266,7 +339,7 @@ TreeErrorType AddLatexPlot(FILE* file, const char* function_formula, //СИГМ�
 
     fprintf(file, "\\end{axis}\n");
     fprintf(file, "\\end{tikzpicture}\n");
-    fprintf(file, "\\caption{График функции $f(x) = %s$}\n", function_formula);
+    fprintf(file, "\\caption{Plot: $f(x) = %s$}\n", function_formula);
     fprintf(file, "\\end{figure}\n");
     fprintf(file, "\\vspace{1cm}\n");
 
@@ -304,8 +377,8 @@ TreeErrorType DumpOptimizationStepToFile(FILE* file, const char* description, Tr
     TreeToStringSimple(tree->root, expression, &pos, sizeof(expression));
 
     fprintf(file, "\\begin{dmath} %s \\end{dmath}\n\n", expression);
-    fprintf(file, "Result after simplification:\n");
-    fprintf(file, "\\begin{dmath} %.6f \\end{dmath}\n\n", result_value);
+    // fprintf(file, "Result after simplification:\n");
+    // fprintf(file, "\\begin{dmath} %.6f \\end{dmath}\n\n", result_value);
     fprintf(file, "\\vspace{0.5em}\n");
 
     return TREE_ERROR_NO;
@@ -321,7 +394,7 @@ TreeErrorType DumpDerivativeToFile(FILE* file, Tree* derivative_tree, double der
     TreeToStringSimple(derivative_tree->root, derivative_expr, &pos, sizeof(derivative_expr));
 
     const char* derivative_notation = NULL;
-    char custom_notation[32] = {0};
+    char custom_notation[kMaxCustomNotationLength] = {0}; //FIXME
 
     if (derivative_order == 1)
     {

@@ -7,17 +7,6 @@
 #include <string.h>
 #include "tree_error_types.h"
 
-// static const char* GetNodeTypeString(NodeType type)
-// {
-//     switch (type)
-//     {
-//         case NODE_OP:   return "OP";
-//         case NODE_NUM:  return "NUM";
-//         case NODE_VAR:  return "VAR";
-//         default:        return "UNKNOWN";
-//     }
-// }
-
 static const char* NodeDataToString(const Node* node, char* buffer, size_t buffer_size)
 {
     if (node == NULL)
@@ -37,7 +26,7 @@ static const char* NodeDataToString(const Node* node, char* buffer, size_t buffe
                 case OP_LN:  return "ln";
                 case OP_EXP: return "exp";
                 case OP_POW: return "^";
-                default: return "?OP";
+                default:     return "?OP";
             }
         case NODE_NUM:
             snprintf(buffer, buffer_size, "%.2f", node->data.num_value);
@@ -197,9 +186,6 @@ static void WriteHighlightedBuffer(FILE* htm_file, const char* buffer, size_t bu
     fprintf(htm_file, "<div style='margin:10px 0; padding:10px; background:#f5f5f5; border:1px solid #ddd; font-family:monospace; font-size:14px;'>\n");
     fprintf(htm_file, "<p style='margin:0 0 5px 0; font-weight:bold;'>Текущая позиция в буфере: %lu</p>\n", pos);
     fprintf(htm_file, "<div style='background:white; padding:8px; border:1px solid #ccc; word-wrap:break-word;'>\n");
-
-    // if (pos > buffer_length)
-    //     pos = buffer_length;
 
     // до текущей позиции в серый цвет
     if (pos > 0)

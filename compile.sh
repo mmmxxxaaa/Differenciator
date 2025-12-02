@@ -2,7 +2,7 @@
 
 files="src/main.cpp src/dump.cpp src/io_diff.cpp src/tree_base.cpp \
        src/user_interface.cpp src/variable_parse.cpp src/operations.cpp src/latex_dump.cpp \
-       src/logic_functions.cpp src/new_great_input.cpp"
+       src/logic_functions.cpp src/new_great_input.cpp src/processing_diff.cpp"
 
 flags="-D _DEBUG -ggdb3 -std=c++17 -O0 -Wall -Wextra -Weffc++ -Waggressive-loop-optimizations \
     -Wc++14-compat -Wmissing-declarations -Wcast-align -Wcast-qual -Wchar-subscripts \

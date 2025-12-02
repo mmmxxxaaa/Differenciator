@@ -19,6 +19,7 @@ const int         kMaxTexDescriptionLength            = 256;
 const int         kMaxNOfVariables                    = 100;
 const int         kMaxVariableLength                  = 32;
 const int         kMaxFuncNameLength                  = 256;
+const int         kMaxCustomNotationLength            = 32;
 
 typedef enum {
     NODE_OP,
@@ -61,6 +62,7 @@ typedef struct Node {
     struct Node*        left;
     struct Node*        right;
     struct Node*        parent;
+    int                 priority;  // Приоритет операции (0 для чисел и переменных)
 } Node;
 
 typedef struct {

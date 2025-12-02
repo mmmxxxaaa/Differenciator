@@ -242,8 +242,50 @@ Node* CreateNode(NodeType type, ValueOfTreeElement data, Node* left, Node* right
     node->left = left;
     node->right = right;
     node->parent = NULL;
-
     node->data = data;
+
+    // Устанавливаем приоритет в зависимости от типа узла
+    switch (type)
+    {
+        case NODE_NUM:
+        case NODE_VAR:
+            node->priority = 0;  // Наименьший приоритет для чисел и переменных
+            break;
+
+        case NODE_OP:
+            switch (data.op_value)
+            {
+                case OP_ADD:
+                case OP_SUB:
+                    node->priority = 1;  // Низкий приоритет для сложения/вычитания
+                    break;
+
+                case OP_MUL:
+                case OP_DIV:
+                    node->priority = 2;  // Средний приоритет для умножения/деления
+                    break;
+
+                case OP_SIN:
+                case OP_COS:
+                case OP_LN:
+                case OP_EXP:
+                    node->priority = 3;  // Высокий приоритет для унарных операций
+                    break;
+
+                case OP_POW:
+                    node->priority = 4;  // Наивысший приоритет для степени
+                    break;
+
+                default:
+                    node->priority = 0;
+                    break;
+            }
+            break;
+
+        default:
+            node->priority = 0;
+            break;
+    }
 
     if (type == NODE_VAR && data.var_definition.name != NULL)
     {
@@ -265,12 +307,14 @@ static Node* CopyNode(Node* original)
         return NULL;
 
     ValueOfTreeElement data = {};
+    Node* new_node = NULL;
 
     switch (original->type)
     {
         case NODE_NUM:
             data.num_value = original->data.num_value;
-            return CREATE_NUM(data.num_value);
+            new_node = CREATE_NUM(data.num_value);
+            break;
 
         case NODE_VAR:
             data.var_definition.hash = original->data.var_definition.hash;
@@ -282,22 +326,30 @@ static Node* CopyNode(Node* original)
             {
                 data.var_definition.name = NULL;
             }
-            return CreateNode(NODE_VAR, data, NULL, NULL);
+            new_node = CreateNode(NODE_VAR, data, NULL, NULL);
+            break;
 
         case NODE_OP:
             data.op_value = original->data.op_value;
             if (original->data.op_value == OP_SIN || original->data.op_value == OP_COS ||
                 original->data.op_value == OP_LN || original->data.op_value == OP_EXP)
             {
-                return CREATE_UNARY_OP(data.op_value, CopyNode(original->right));
+                new_node =  CREATE_UNARY_OP(data.op_value, CopyNode(original->right));
             }
             else
             {
-                return CREATE_OP(data.op_value, CopyNode(original->left), CopyNode(original->right));
+                new_node = CREATE_OP(data.op_value, CopyNode(original->left), CopyNode(original->right));
             }
+            break;
+
         default:
             return NULL;
     }
+
+    if (new_node != NULL)
+        new_node->priority = original->priority;
+
+    return new_node;
 }
 
 static bool ContainsVariable(Node* node, const char* variable_name)
@@ -753,7 +805,7 @@ static Node* DifferentiateNode(Node* node, const char* variable_name)
             return CREATE_NUM(0.0);
     }
 }
-//FIXME обсёр со скобками
+
 TreeErrorType DifferentiateTree(Tree* tree, const char* variable_name, Tree* result_tree)
 {
     if (tree == NULL || variable_name == NULL || result_tree == NULL)
@@ -768,68 +820,68 @@ TreeErrorType DifferentiateTree(Tree* tree, const char* variable_name, Tree* res
 
     result_tree->root = derivative_root;
     result_tree->size = CountTreeNodes(derivative_root);
-    // TreeDump(derivative_root, "vova_hochet_glyanut");//FIXME
+
     return TREE_ERROR_NO;
 }
 
-Node* CreateNodeFromToken(const char* token, Node* parent)
-{
-    static OperationInfo operations[] = {
-        {0, "+",   OP_ADD},
-        {0, "-",   OP_SUB},
-        {0, "*",   OP_MUL},
-        {0, "/",   OP_DIV},
-        {0, "sin", OP_SIN},
-        {0, "cos", OP_COS},
-        {0, "^",   OP_POW},
-        {0, "ln",  OP_LN},
-        {0, "exp", OP_EXP}
-    };
-
-    static size_t operations_count = sizeof(operations) / sizeof(operations[0]);
-    static bool hashes_initialized = false;
-
-    if (!hashes_initialized)
-    {
-        for (size_t i = 0; i < operations_count; i++)
-        {
-            operations[i].hash = ComputeHash(operations[i].name);
-        }
-        hashes_initialized = true;
-    }
-
-    unsigned int token_hash = ComputeHash(token);
-    Node* node = NULL;
-
-    for (size_t i = 0; i < operations_count; i++)
-    {
-        if (token_hash == operations[i].hash)
-        {
-            node = CREATE_OP(operations[i].op_value, NULL, NULL);
-            break;
-        }
-    }
-
-    if (node == NULL)
-    {
-        if (isdigit(token[0]) || (token[0] == '-' && isdigit(token[1])))
-        {
-            node = CREATE_NUM(atof(token));
-        }
-        else
-        {
-            ValueOfTreeElement data = {};
-            data.var_definition.hash = token_hash;
-            data.var_definition.name = strdup(token);
-            node = CreateNode(NODE_VAR, data, NULL, NULL);
-        }
-    }
-
-    if (node != NULL)
-        node->parent = parent;
-
-    return node;
-}
+// Node* CreateNodeFromToken(const char* token, Node* parent)
+// {
+//     static OperationInfo operations[] = {
+//         {0, "+",   OP_ADD},
+//         {0, "-",   OP_SUB},
+//         {0, "*",   OP_MUL},
+//         {0, "/",   OP_DIV},
+//         {0, "sin", OP_SIN},
+//         {0, "cos", OP_COS},
+//         {0, "^",   OP_POW},
+//         {0, "ln",  OP_LN},
+//         {0, "exp", OP_EXP}
+//     };
+//
+//     static size_t operations_count = sizeof(operations) / sizeof(operations[0]);
+//     static bool hashes_initialized = false;
+//
+//     if (!hashes_initialized)
+//     {
+//         for (size_t i = 0; i < operations_count; i++)
+//         {
+//             operations[i].hash = ComputeHash(operations[i].name);
+//         }
+//         hashes_initialized = true;
+//     }
+//
+//     unsigned int token_hash = ComputeHash(token);
+//     Node* node = NULL;
+//
+//     for (size_t i = 0; i < operations_count; i++)
+//     {
+//         if (token_hash == operations[i].hash)
+//         {
+//             node = CREATE_OP(operations[i].op_value, NULL, NULL);
+//             break;
+//         }
+//     }
+//
+//     if (node == NULL)
+//     {
+//         if (isdigit(token[0]) || (token[0] == '-' && isdigit(token[1])))
+//         {
+//             node = CREATE_NUM(atof(token));
+//         }
+//         else
+//         {
+//             ValueOfTreeElement data = {};
+//             data.var_definition.hash = token_hash;
+//             data.var_definition.name = strdup(token);
+//             node = CreateNode(NODE_VAR, data, NULL, NULL);
+//         }
+//     }
+//
+//     if (node != NULL)
+//         node->parent = parent;
+//
+//     return node;
+// }
 
 static void ReplaceNode(Node** node_ptr, Node* new_node)
 {
@@ -969,7 +1021,6 @@ static TreeErrorType ConstantFoldingOptimizationWithDump(Node** node, FILE* tex_
     }
 //FIXME создать структуру дифференциатора
     return TREE_ERROR_NO;
-//FIXME приоритет вычисляется только во время дампа, хранить приоритет в структуре ноды, для чисел и переменных низший приоритет
 }
 //FIXME дампить на уровень выше этих функций, description просто через аргументы передавать
 static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_file, Tree* tree, VariableTable* var_table)
@@ -1015,7 +1066,7 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
                 }
                 break;
 
-            case OP_SUB:
+            case OP_SUB: //FIXME  ДОБАВИТЬ Случай 0 - A => -A и для выражений: 0 - выражение => -1 * выражение
                 if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
                     is_zero((*node)->right->data.num_value))
                 {
@@ -1024,7 +1075,7 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
                 }
                 break;
 
-            case OP_MUL:
+            case OP_MUL: //СИГМА СКИБИДИ
                 if (((*node)->left != NULL && (*node)->left->type == NODE_NUM &&
                      is_zero((*node)->left->data.num_value)) ||
                     ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
@@ -1045,8 +1096,62 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
                     new_node = CopyNode((*node)->right);
                     description = "mul one simplified";
                 }
+                else if ((*node)->left != NULL && (*node)->left->type == NODE_NUM &&
+                         is_minus_one((*node)->left->data.num_value))
+                {
+                    // проверяем, не является ли правый операнд тоже умножением на -1
+                    if ((*node)->right != NULL && (*node)->right->type == NODE_OP &&
+                        (*node)->right->data.op_value == OP_MUL)
+                    {
+                        Node* right_node = (*node)->right;
+                        if (right_node->left != NULL && right_node->left->type == NODE_NUM &&
+                            is_minus_one(right_node->left->data.num_value))
+                        {
+                            // -1 * (-1 * A) => A
+                            new_node = CopyNode(right_node->right);
+                            description = "double minus simplified";
+                        }
+                        else if (right_node->right != NULL && right_node->right->type == NODE_NUM &&
+                                 is_minus_one(right_node->right->data.num_value))
+                        {
+                            // -1 * (A * -1) => A
+                            new_node = CopyNode(right_node->left);
+                            description = "double minus simplified";
+                        }
+                    }
+                    else if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
+                             is_minus_one((*node)->right->data.num_value))
+                    {
+                        // -1 * -1 => 1
+                        new_node = CREATE_NUM(1.0);
+                        description = "minus times minus simplified";
+                    }
+                }
+                else if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
+                         is_minus_one((*node)->right->data.num_value))
+                {
+                    // проверяем, не является ли левый операнд тоже умножением на -1
+                    if ((*node)->left != NULL && (*node)->left->type == NODE_OP &&
+                        (*node)->left->data.op_value == OP_MUL)
+                    {
+                        Node* left_node = (*node)->left;
+                        if (left_node->left != NULL && left_node->left->type == NODE_NUM &&
+                            is_minus_one(left_node->left->data.num_value))
+                        {
+                            // (-1 * A) * -1 => A
+                            new_node = CopyNode(left_node->right);
+                            description = "double minus simplified";
+                        }
+                        else if (left_node->right != NULL && left_node->right->type == NODE_NUM &&
+                                 is_minus_one(left_node->right->data.num_value))
+                        {
+                            // (A * -1) * -1 => A
+                            new_node = CopyNode(left_node->left);
+                            description = "double minus simplified";
+                        }
+                    }
+                }
                 break;
-
             case OP_DIV:
                 if ((*node)->left != NULL && (*node)->left->type == NODE_NUM &&
                     is_zero((*node)->left->data.num_value) &&
