@@ -12,7 +12,7 @@ const int         kMaxPathDepth                       = 100;
 const int         kTreeDumpAfterAddingElementCapacity = 512;
 const char* const kDefaultDataBaseFilename            = "differenciator_tree.txt";
 const int         kMaxNumberOfDerivative              = 4;
-const int         kMaxLengthOfTexExpression           = 4096;
+const int         kMaxLengthOfTexExpression           = 30000;
 const char* const kTexFilename                        = "full_analysis.tex";
 const int         kMaxDotBufferLength                 = 64;
 const int         kMaxTexDescriptionLength            = 256;
@@ -20,6 +20,7 @@ const int         kMaxNOfVariables                    = 100;
 const int         kMaxVariableLength                  = 32;
 const int         kMaxFuncNameLength                  = 256;
 const int         kMaxCustomNotationLength            = 32;
+const int         kTaylor                             = 7;
 
 typedef enum {
     NODE_OP,

@@ -21,27 +21,11 @@ int main(int argc, const char** argv)
     TreeErrorType error = TREE_ERROR_NO;
 
     if (error == TREE_ERROR_NO) error = InitializeExpression(diff_struct, argc, argv);
-
     if (error == TREE_ERROR_NO) error = ParseExpressionTree(diff_struct);
-
     if (error == TREE_ERROR_NO) error = InitializeLatexOutput(diff_struct);
-
     if (error == TREE_ERROR_NO) error = RequestVariableValues(diff_struct);
-
     if (error == TREE_ERROR_NO) error = EvaluateOriginalFunction(diff_struct);
-
     if (error == TREE_ERROR_NO) error = OptimizeExpressionTree(diff_struct);
-
-    // строим график (если возможно)
-    if (error == TREE_ERROR_NO)
-    {
-        TreeErrorType plot_error = PlotFunctionGraph(diff_struct);
-        if (plot_error != TREE_ERROR_NO && plot_error != TREE_ERROR_NO_VARIABLES)
-        {
-            fprintf(stderr, "He удалось построить график: %s\n", GetTreeErrorString(plot_error));
-        }
-    }
-
     if (error == TREE_ERROR_NO) error = PerformDifferentiationProcess(diff_struct);
 
     if (error == TREE_ERROR_NO && diff_struct->tex_file)

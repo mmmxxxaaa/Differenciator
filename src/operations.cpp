@@ -12,49 +12,13 @@
 #include "tree_base.h"
 #include "latex_dump.h"
 #include "dump.h"
-
-//ДЕЛО СДЕЛАНО оглавление
-//FIXME главы оформить
-//FIXME график функции, производной и Тейлора
-//FIXME касательная в точке
-
-// ==================== DSL ДЛЯ СОЗДАНИЯ УЗЛОВ ====================
-#define CREATE_NUM(value)          CreateNode(NODE_NUM, (ValueOfTreeElement){.num_value = (value)}, NULL, NULL)
-#define CREATE_OP(op, left, right) CreateNode(NODE_OP,  (ValueOfTreeElement){.op_value = (op)}, (left), (right))
-#define CREATE_UNARY_OP(op, right) CreateNode(NODE_OP,  (ValueOfTreeElement){.op_value = (op)}, NULL, (right))
-#define CREATE_VAR(name)           CreateNode(NODE_VAR, (ValueOfTreeElement){.var_definition = (VariableDefinition){.name = strdup(name), .hash = ComputeHash(name)}}, NULL, NULL)
-//DSL которая может копировать поддеревья и диффференцирование
-#define CHECK_AND_CREATE(condition, creator) \
-    ((condition) ? (creator) : (NULL))
-
-#define RELEASE_IF_NULL(ptr, ...) \
-    do { \
-        if (!(ptr)) \
-        {           \
-            Node* nodes[] = {__VA_ARGS__}; \
-            for (size_t i = 0; i < sizeof(nodes)/sizeof(nodes[0]); i++) \
-                if (nodes[i]) FreeSubtree(nodes[i]); \
-        } \
-    } while(0)
-// ===================================================================
+#include "DSL.h"
 
 // ==================== ПРОТОТИПЫ ФУНКЦИЙ ====================
-static Node* DifferentiateAddSub(Node* node, const char* variable_name, OperationType op);
-static Node* DifferentiateMul   (Node* node, const char* variable_name);
-static Node* DifferentiateDiv   (Node* node, const char* variable_name);
-static Node* DifferentiateSin   (Node* node, const char* variable_name);
-static Node* DifferentiateCos   (Node* node, const char* variable_name);
-static Node* DifferentiatePow   (Node* node, const char* variable_name);
-static Node* DifferentiateLn    (Node* node, const char* variable_name);
-static Node* DifferentiateExp   (Node* node, const char* variable_name);
-static Node* DifferentiatePowerVarConst(Node* u, Node* v, Node* du_dx, Node* dv_dx);
-static Node* DifferentiatePowerConstVar(Node* u, Node* v, Node* du_dx, Node* dv_dx);
-static Node* DifferentiatePowerVarVar  (Node* u, Node* v, Node* du_dx, Node* dv_dx);
-static Node* DifferentiateNode(Node* node, const char* variable_name);
 static void  FreeNodes(int count, ...);
 static bool  ContainsVariable(Node* node, const char* variable_name);
 static void  ReplaceNode(Node** node_ptr, Node* new_node);
-
+static Node* DifferentiateNode(Node* node, const char* variable_name);
 
 // ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
 
@@ -84,22 +48,6 @@ static void FreeNodes(int count, ...)
     va_end(args);
 }
 
-static Node* CreateCheckedOp(OperationType op, Node* left, Node* right)
-{
-    Node* result = CREATE_OP(op, left, right);
-    RELEASE_IF_NULL(result, left, right);
-
-    return result;
-}
-
-static Node* CreateCheckedUnaryOp(OperationType op, Node* right)
-{
-    Node* result = CREATE_UNARY_OP(op, right);
-    RELEASE_IF_NULL(result, right);
-
-    return result;
-}
-
 static TreeErrorType EvaluateTreeRecursive(Node* node, VariableTable* var_table, double* result, int depth)
 {
     if (node == NULL)
@@ -112,7 +60,6 @@ static TreeErrorType EvaluateTreeRecursive(Node* node, VariableTable* var_table,
     {
         case NODE_NUM:
             *result = node->data.num_value;
-
             return TREE_ERROR_NO;
 
         case NODE_OP:
@@ -211,7 +158,6 @@ static TreeErrorType EvaluateTreeRecursive(Node* node, VariableTable* var_table,
                     return error;
                 }
 
-
                 *result = value;
                 return TREE_ERROR_NO;
             }
@@ -301,7 +247,21 @@ Node* CreateNode(NodeType type, ValueOfTreeElement data, Node* left, Node* right
     return node;
 }
 
-static Node* CopyNode(Node* original)
+static Node* CreateVariableNode(const char* name)
+{
+    if (!name)
+        return NULL;
+
+    ValueOfTreeElement data = {};
+    data.var_definition.name = strdup(name);
+    if (!data.var_definition.name)
+        return NULL;
+
+    data.var_definition.hash = ComputeHash(name);
+    return CreateNode(NODE_VAR, data, NULL, NULL);
+}
+
+Node* CopyNode(Node* original)
 {
     if (original == NULL)
         return NULL;
@@ -313,20 +273,12 @@ static Node* CopyNode(Node* original)
     {
         case NODE_NUM:
             data.num_value = original->data.num_value;
-            new_node = CREATE_NUM(data.num_value);
+            new_node = NUM(data.num_value);
             break;
 
         case NODE_VAR:
-            data.var_definition.hash = original->data.var_definition.hash;
-            if (original->data.var_definition.name != NULL)
-            {
-                data.var_definition.name = strdup(original->data.var_definition.name);
-            }
-            else
-            {
-                data.var_definition.name = NULL;
-            }
-            new_node = CreateNode(NODE_VAR, data, NULL, NULL);
+            new_node = CreateVariableNode(original->data.var_definition.name ?
+                                          original->data.var_definition.name : "?");
             break;
 
         case NODE_OP:
@@ -334,11 +286,11 @@ static Node* CopyNode(Node* original)
             if (original->data.op_value == OP_SIN || original->data.op_value == OP_COS ||
                 original->data.op_value == OP_LN || original->data.op_value == OP_EXP)
             {
-                new_node =  CREATE_UNARY_OP(data.op_value, CopyNode(original->right));
+                new_node = CreateNode(NODE_OP, data, NULL, CopyNode(original->right));
             }
             else
             {
-                new_node = CREATE_OP(data.op_value, CopyNode(original->left), CopyNode(original->right));
+                new_node = CreateNode(NODE_OP, data, CopyNode(original->left), CopyNode(original->right));
             }
             break;
 
@@ -376,377 +328,7 @@ static bool ContainsVariable(Node* node, const char* variable_name)
     }
 }
 
-// ==================== ФУНКЦИИ ДИФФЕРЕНЦИРОВАНИЯ ====================
-
-static Node* DifferentiateAddSub(Node* node, const char* variable_name, OperationType op)
-{
-    Node* left_deriv  = DifferentiateNode(node->left,  variable_name);
-    Node* right_deriv = DifferentiateNode(node->right, variable_name);
-
-    if (!left_deriv || !right_deriv)
-    {
-        FreeNodes(2, left_deriv, right_deriv);
-        return NULL;
-    }
-
-    return CreateCheckedOp(op, left_deriv, right_deriv);
-}
-
-static Node* DifferentiateMul(Node* node, const char* variable_name)
-{
-    Node* u = CopyNode(node->left);
-    Node* v = CopyNode(node->right);
-    Node* du_dx = DifferentiateNode(node->left,  variable_name);
-    Node* dv_dx = DifferentiateNode(node->right, variable_name);
-
-    if (!u || !v || !du_dx || !dv_dx)
-    {
-        FreeNodes(4, u, v, du_dx, dv_dx);
-        return NULL;
-    }
-
-    Node* term1 = CreateCheckedOp(OP_MUL, u, dv_dx);
-    if (!term1)
-    {
-        FreeNodes(3, v, du_dx, dv_dx);
-        return NULL;
-    }
-
-    Node* term2 = CreateCheckedOp(OP_MUL, v, du_dx);
-    if (!term2)
-    {
-        FreeNodes(2, term1, du_dx);
-        return NULL;
-    }
-
-    Node* result = CreateCheckedOp(OP_ADD, term1, term2);
-    if (!result)
-    {
-        FreeNodes(2, term1, term2);
-    }
-
-    return result;
-}
-
-static Node* DifferentiateDiv(Node* node, const char* variable_name)
-{
-    Node* u = CopyNode(node->left);
-    Node* v = CopyNode(node->right);
-    Node* du_dx = DifferentiateNode(node->left, variable_name);
-    Node* dv_dx = DifferentiateNode(node->right, variable_name);
-
-    if (!u || !v || !du_dx || !dv_dx)
-    {
-        FreeNodes(4, u, v, du_dx, dv_dx);
-        return NULL;
-    }
-
-    Node* numerator_term1 = CreateCheckedOp(OP_MUL, v, du_dx);
-    if (!numerator_term1)
-    {
-        FreeNodes(4, u, v, du_dx, dv_dx);
-        return NULL;
-    }
-
-    Node* numerator_term2 = CreateCheckedOp(OP_MUL, u, dv_dx);
-    if (!numerator_term2)
-    {
-        FreeNodes(3, numerator_term1, u, dv_dx);
-        return NULL;
-    }
-
-    Node* numerator = CreateCheckedOp(OP_SUB, numerator_term1, numerator_term2);
-    if (!numerator)
-    {
-        FreeNodes(2, numerator_term1, numerator_term2);
-        return NULL;
-    }
-
-    Node* v_copy1 = CopyNode(node->right);
-    Node* v_copy2 = CopyNode(node->right);
-    Node* v_squared = CreateCheckedOp(OP_MUL, v_copy1, v_copy2);
-    if (!v_squared)
-    {
-        FreeNodes(3, numerator, v_copy1, v_copy2);
-        return NULL;
-    }
-
-    Node* result = CreateCheckedOp(OP_DIV, numerator, v_squared);
-    if (!result)
-        FreeNodes(2, numerator, v_squared);
-
-    return result;
-}
-
-static Node* DifferentiateSin(Node* node, const char* variable_name)
-{
-    Node* u = CopyNode(node->right);
-    Node* du_dx = DifferentiateNode(node->right, variable_name);
-
-    if (!u || !du_dx)
-    {
-        FreeNodes(2, u, du_dx);
-        return NULL;
-    }
-
-    Node* cos_u = CreateCheckedUnaryOp(OP_COS, u);
-    if (!cos_u)
-    {
-        FreeNodes(1, du_dx);
-        return NULL;
-    }
-
-    Node* result = CreateCheckedOp(OP_MUL, cos_u, du_dx);
-    if (!result)
-    {
-        FreeNodes(2, cos_u, du_dx);
-    }
-
-    return result;
-}
-
-static Node* DifferentiateCos(Node* node, const char* variable_name)
-{
-    Node* u = CopyNode(node->right);
-    Node* du_dx = DifferentiateNode(node->right, variable_name);
-
-    if (!u || !du_dx)
-    {
-        FreeNodes(2, u, du_dx);
-        return NULL;
-    }
-
-    Node* sin_u = CreateCheckedUnaryOp(OP_SIN, u);
-    if (!sin_u)
-    {
-        FreeNodes(1, du_dx);
-        return NULL;
-    }
-
-    Node* minus_one = CREATE_NUM(-1.0);
-    if (!minus_one)
-    {
-        FreeNodes(2, sin_u, du_dx);
-        return NULL;
-    }
-
-    Node* minus_sin_u = CreateCheckedOp(OP_MUL, minus_one, sin_u);
-    if (!minus_sin_u)
-    {
-        FreeNodes(3, minus_one, sin_u, du_dx);
-        return NULL;
-    }
-
-    Node* result = CreateCheckedOp(OP_MUL, minus_sin_u, du_dx);
-    if (!result)
-        FreeNodes(2, minus_sin_u, du_dx);
-
-    return result;
-}
-
-static Node* DifferentiatePowerVarConst(Node* u, Node* v, Node* du_dx, Node* dv_dx)
-{
-    Node* a_minus_one = CREATE_NUM(v->data.num_value - 1.0);
-    if (!a_minus_one)
-        return NULL;
-
-    Node* u_pow_a_minus_one = CreateCheckedOp(OP_POW, u, a_minus_one);
-    if (!u_pow_a_minus_one)
-    {
-        FreeNodes(1, a_minus_one);
-        return NULL;
-    }
-
-    Node* a_times_pow = CreateCheckedOp(OP_MUL, v, u_pow_a_minus_one);
-    if (!a_times_pow)
-    {
-        FreeNodes(1, u_pow_a_minus_one);
-        return NULL;
-    }
-
-    Node* result = CreateCheckedOp(OP_MUL, a_times_pow, du_dx);
-    if (!result)
-        FreeNodes(1, a_times_pow);
-    else
-        FreeSubtree(dv_dx);
-
-    return result;
-}
-
-static Node* DifferentiatePowerConstVar(Node* u, Node* v, Node* du_dx, Node* dv_dx)
-{
-    Node* a_pow_x = CreateCheckedOp(OP_POW, u, v);
-    if (!a_pow_x)
-        return NULL;
-
-    Node* u_copy = CopyNode(u);
-    if (!u_copy)
-    {
-        FreeNodes(1, a_pow_x);
-        return NULL;
-    }
-
-    Node* ln_a = CreateCheckedUnaryOp(OP_LN, u_copy);
-    if (!ln_a)
-    {
-        FreeNodes(2, a_pow_x, u_copy);
-        return NULL;
-    }
-
-    Node* result = CreateCheckedOp(OP_MUL, a_pow_x, ln_a);
-    if (!result)
-        FreeNodes(2, a_pow_x, ln_a);
-    else
-        FreeNodes(2, du_dx, dv_dx);
-
-    return result;
-}
-
-static Node* DifferentiatePowerVarVar(Node* u, Node* v, Node* du_dx, Node* dv_dx)
-{
-    Node* u_pow_v = CreateCheckedOp(OP_POW, u, v);
-    if (!u_pow_v)
-        return NULL;
-
-    Node* u_copy_for_ln = CopyNode(u);
-    Node* u_copy_for_div = CopyNode(u);
-    Node* v_copy_for_div = CopyNode(v);
-
-    if (!u_copy_for_ln || !u_copy_for_div || !v_copy_for_div)
-    {
-        FreeNodes(4, u_pow_v, u_copy_for_ln, u_copy_for_div, v_copy_for_div);
-        return NULL;
-    }
-
-    Node* ln_u = CreateCheckedUnaryOp(OP_LN, u_copy_for_ln);
-    if (!ln_u)
-    {
-        FreeNodes(4, u_pow_v, u_copy_for_ln, u_copy_for_div, v_copy_for_div);
-        return NULL;
-    }
-
-    Node* dv_ln_u = CreateCheckedOp(OP_MUL, dv_dx, ln_u);
-    if (!dv_ln_u)
-    {
-        FreeNodes(4, u_pow_v, u_copy_for_div, v_copy_for_div, ln_u);
-        return NULL;
-    }
-
-    Node* v_div_u = CreateCheckedOp(OP_DIV, v_copy_for_div, u_copy_for_div);
-    if (!v_div_u)
-    {
-        FreeNodes(3, u_pow_v, dv_ln_u, v_copy_for_div);
-        return NULL;
-    }
-
-    Node* v_du_div_u = CreateCheckedOp(OP_MUL, v_div_u, du_dx);
-    if (!v_du_div_u)
-    {
-        FreeNodes(3, u_pow_v, dv_ln_u, v_div_u);
-        return NULL;
-    }
-
-    Node* bracket = CreateCheckedOp(OP_ADD, dv_ln_u, v_du_div_u);
-    if (!bracket)
-    {
-        FreeNodes(3, u_pow_v, dv_ln_u, v_du_div_u);
-        return NULL;
-    }
-
-    Node* result = CreateCheckedOp(OP_MUL, u_pow_v, bracket);
-    if (!result)
-        FreeNodes(2, u_pow_v, bracket);
-
-    return result;
-}
-//FIXME DSL-ка уберет тела этих функций и все эти тела будут создаваться этими макросами в свитч-кейсе
-static Node* DifferentiatePow(Node* node, const char* variable_name)
-{
-    Node* u = CopyNode(node->left);
-    Node* v = CopyNode(node->right);
-    Node* du_dx = DifferentiateNode(node->left, variable_name);
-    Node* dv_dx = DifferentiateNode(node->right, variable_name);
-
-    if (!u || !v || !du_dx || !dv_dx)
-    {
-        FreeNodes(4, u, v, du_dx, dv_dx);
-        return NULL;
-    }
-
-    bool left_has_var = ContainsVariable(node->left, variable_name);
-    bool right_has_var = ContainsVariable(node->right, variable_name);
-
-    Node* result = NULL;
-
-    if (left_has_var && !right_has_var)
-        result = DifferentiatePowerVarConst(u, v, du_dx, dv_dx);
-    else if (!left_has_var && right_has_var)
-        result = DifferentiatePowerConstVar(u, v, du_dx, dv_dx);
-    else
-        result = DifferentiatePowerVarVar(u, v, du_dx, dv_dx);
-
-    if (!result)
-        FreeNodes(4, u, v, du_dx, dv_dx);
-
-    return result;
-}
-
-static Node* DifferentiateLn(Node* node, const char* variable_name)
-{
-    Node* u = CopyNode(node->right);
-    Node* du_dx = DifferentiateNode(node->right, variable_name);
-
-    if (!u || !du_dx)
-    {
-        FreeNodes(2, u, du_dx);
-        return NULL;
-    }
-
-    Node* one = CREATE_NUM(1.0);
-    if (!one)
-    {
-        FreeNodes(2, u, du_dx);
-        return NULL;
-    }
-
-    Node* one_div_u = CreateCheckedOp(OP_DIV, one, u);
-    if (!one_div_u)
-    {
-        FreeNodes(3, one, u, du_dx);
-        return NULL;
-    }
-
-    Node* result = CreateCheckedOp(OP_MUL, one_div_u, du_dx);
-    if (!result)
-        FreeNodes(2, one_div_u, du_dx);
-
-    return result;
-}
-
-static Node* DifferentiateExp(Node* node, const char* variable_name)
-{
-    Node* u = CopyNode(node->right);
-    Node* du_dx = DifferentiateNode(node->right, variable_name);
-
-    if (!u || !du_dx)
-    {
-        FreeNodes(2, u, du_dx);
-        return NULL;
-    }
-
-    Node* exp_u = CreateCheckedUnaryOp(OP_EXP, u);
-    if (!exp_u)
-    {
-        FreeNodes(1, du_dx);
-        return NULL;
-    }
-
-    Node* result = CreateCheckedOp(OP_MUL, exp_u, du_dx);
-    if (!result)
-        FreeNodes(2, exp_u, du_dx);
-
-    return result;
-}
+// ==================== ДИФФЕРЕНЦИРОВАНИЕ ЧЕРЕЗ DSL ====================
 
 static Node* DifferentiateNode(Node* node, const char* variable_name)
 {
@@ -756,53 +338,101 @@ static Node* DifferentiateNode(Node* node, const char* variable_name)
     switch (node->type)
     {
         case NODE_NUM:
-            return CREATE_NUM(0.0);
+            return NUM(0.0);
 
         case NODE_VAR:
             if (node->data.var_definition.name &&
                 strcmp(node->data.var_definition.name, variable_name) == 0)
             {
-                return CREATE_NUM(1.0);
+                return NUM(1.0);
             }
             else
             {
-                return CREATE_NUM(0.0);
+                return NUM(0.0);
             }
 
         case NODE_OP:
             switch (node->data.op_value)
             {
                 case OP_ADD:
+                    return ADD(DIFF(node->left, variable_name),
+                              DIFF(node->right, variable_name));
+
                 case OP_SUB:
-                    return DifferentiateAddSub(node, variable_name, node->data.op_value);
+                    return SUB(DIFF(node->left, variable_name),
+                              DIFF(node->right, variable_name));
 
                 case OP_MUL:
-                    return DifferentiateMul(node, variable_name);
+                    return ADD(MUL(COPY(node->left),
+                                   DIFF(node->right, variable_name)),
+                               MUL(COPY(node->right),
+                                   DIFF(node->left, variable_name)));
 
                 case OP_DIV:
-                    return DifferentiateDiv(node, variable_name);
+                    return DIV(SUB(MUL(COPY(node->right),
+                                        DIFF(node->left, variable_name)),
+                                   MUL(COPY(node->left),
+                                        DIFF(node->right, variable_name))),
+                               MUL(COPY(node->right),
+                                   COPY(node->right)));
 
                 case OP_SIN:
-                    return DifferentiateSin(node, variable_name);
+                    return MUL(COS(COPY(node->right)),
+                              DIFF(node->right, variable_name));
 
                 case OP_COS:
-                    return DifferentiateCos(node, variable_name);
-
-                case OP_POW:
-                    return DifferentiatePow(node, variable_name);
+                    return MUL(MUL(NUM(-1.0),
+                                   SIN(COPY(node->right))),
+                               DIFF(node->right, variable_name));
 
                 case OP_LN:
-                    return DifferentiateLn(node, variable_name);
+                    return MUL(DIV(NUM(1.0),
+                                   COPY(node->right)),
+                              DIFF(node->right, variable_name));
 
                 case OP_EXP:
-                    return DifferentiateExp(node, variable_name);
+                    return MUL(EXP(COPY(node->right)),
+                              DIFF(node->right, variable_name));
+
+                case OP_POW:
+                {
+                    bool left_has_var = ContainsVariable(node->left, variable_name);
+                    bool right_has_var = ContainsVariable(node->right, variable_name);
+
+                    if (left_has_var && !right_has_var)
+                    {
+                        // x^a -> a * x^(a-1) * dx
+                        return MUL(MUL(COPY(node->right),
+                                       POW(COPY(node->left),
+                                           NUM(node->right->data.num_value - 1.0))),
+                                  DIFF(node->left, variable_name));
+                    }
+                    else if (!left_has_var && right_has_var)
+                    {
+                        // a^x -> a^x * ln(a) * dx
+                        return MUL(MUL(POW(COPY(node->left), COPY(node->right)),
+                                       LN(COPY(node->left))),
+                                  DIFF(node->right, variable_name));
+                    }
+                    else
+                    {
+                        // x^g(x) -> x^g(x) * (g'(x)*ln(x) + g(x)/x * dx)
+                        Node* u_pow_v = POW(COPY(node->left), COPY(node->right));
+                        Node* bracket = ADD(MUL(DIFF(node->right, variable_name),
+                                               LN(COPY(node->left))),
+                                           MUL(DIV(COPY(node->right),
+                                                   COPY(node->left)),
+                                               DIFF(node->left, variable_name)));
+                        return MUL(u_pow_v, bracket);
+                    }
+                }
 
                 default:
-                    return CREATE_NUM(0.0);
+                    return NUM(0.0);
             }
 
         default:
-            return CREATE_NUM(0.0);
+            return NUM(0.0);
     }
 }
 
@@ -823,65 +453,6 @@ TreeErrorType DifferentiateTree(Tree* tree, const char* variable_name, Tree* res
 
     return TREE_ERROR_NO;
 }
-
-// Node* CreateNodeFromToken(const char* token, Node* parent)
-// {
-//     static OperationInfo operations[] = {
-//         {0, "+",   OP_ADD},
-//         {0, "-",   OP_SUB},
-//         {0, "*",   OP_MUL},
-//         {0, "/",   OP_DIV},
-//         {0, "sin", OP_SIN},
-//         {0, "cos", OP_COS},
-//         {0, "^",   OP_POW},
-//         {0, "ln",  OP_LN},
-//         {0, "exp", OP_EXP}
-//     };
-//
-//     static size_t operations_count = sizeof(operations) / sizeof(operations[0]);
-//     static bool hashes_initialized = false;
-//
-//     if (!hashes_initialized)
-//     {
-//         for (size_t i = 0; i < operations_count; i++)
-//         {
-//             operations[i].hash = ComputeHash(operations[i].name);
-//         }
-//         hashes_initialized = true;
-//     }
-//
-//     unsigned int token_hash = ComputeHash(token);
-//     Node* node = NULL;
-//
-//     for (size_t i = 0; i < operations_count; i++)
-//     {
-//         if (token_hash == operations[i].hash)
-//         {
-//             node = CREATE_OP(operations[i].op_value, NULL, NULL);
-//             break;
-//         }
-//     }
-//
-//     if (node == NULL)
-//     {
-//         if (isdigit(token[0]) || (token[0] == '-' && isdigit(token[1])))
-//         {
-//             node = CREATE_NUM(atof(token));
-//         }
-//         else
-//         {
-//             ValueOfTreeElement data = {};
-//             data.var_definition.hash = token_hash;
-//             data.var_definition.name = strdup(token);
-//             node = CreateNode(NODE_VAR, data, NULL, NULL);
-//         }
-//     }
-//
-//     if (node != NULL)
-//         node->parent = parent;
-//
-//     return node;
-// }
 
 static void ReplaceNode(Node** node_ptr, Node* new_node)
 {
@@ -923,7 +494,7 @@ static TreeErrorType ConstantFoldingOptimizationWithDump(Node** node, FILE* tex_
     if ((*node)->type == NODE_OP)
     {
         if (((*node)->data.op_value == OP_SIN || (*node)->data.op_value == OP_COS ||
-             (*node)->data.op_value == OP_LN || (*node)->data.op_value == OP_EXP) &&
+             (*node)->data.op_value == OP_LN  || (*node)->data.op_value == OP_EXP) &&
             (*node)->right != NULL && (*node)->right->type == NODE_NUM)
         {
             double result = 0.0;
@@ -953,7 +524,7 @@ static TreeErrorType ConstantFoldingOptimizationWithDump(Node** node, FILE* tex_
 
             if (can_fold)
             {
-                Node* new_node = CREATE_NUM(result);
+                Node* new_node = NUM(result);
                 if (new_node != NULL)
                 {
                     ReplaceNode(node, new_node);
@@ -1001,7 +572,7 @@ static TreeErrorType ConstantFoldingOptimizationWithDump(Node** node, FILE* tex_
 
             if (can_fold)
             {
-                Node* new_node = CREATE_NUM(result);
+                Node* new_node = NUM(result);
                 if (new_node != NULL)
                 {
                     ReplaceNode(node, new_node);
@@ -1013,16 +584,15 @@ static TreeErrorType ConstantFoldingOptimizationWithDump(Node** node, FILE* tex_
                         snprintf(description, sizeof(description),
                                 "constant folding simplified part of expression to: %.2f", result);
                         DumpOptimizationStepToFile(tex_file, description, tree, new_result);
-                        TreeDump(tree, "vova_hochet_glyanut.htm"); //ЭТО ИМЕННО РЕСПЕКТ
                     }
                 }
             }
         }
     }
-//FIXME создать структуру дифференциатора
+
     return TREE_ERROR_NO;
 }
-//FIXME дампить на уровень выше этих функций, description просто через аргументы передавать
+
 static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_file, Tree* tree, VariableTable* var_table)
 {
     if (node == NULL || *node == NULL)
@@ -1066,7 +636,7 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
                 }
                 break;
 
-            case OP_SUB: //FIXME  ДОБАВИТЬ Случай 0 - A => -A и для выражений: 0 - выражение => -1 * выражение
+            case OP_SUB:
                 if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
                     is_zero((*node)->right->data.num_value))
                 {
@@ -1075,13 +645,13 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
                 }
                 break;
 
-            case OP_MUL: //СИГМА СКИБИДИ
+            case OP_MUL:
                 if (((*node)->left != NULL && (*node)->left->type == NODE_NUM &&
                      is_zero((*node)->left->data.num_value)) ||
                     ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
                      is_zero((*node)->right->data.num_value)))
                 {
-                    new_node = CREATE_NUM(0.0);
+                    new_node = NUM(0.0);
                     description = "mul zero simplified";
                 }
                 else if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
@@ -1099,7 +669,6 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
                 else if ((*node)->left != NULL && (*node)->left->type == NODE_NUM &&
                          is_minus_one((*node)->left->data.num_value))
                 {
-                    // проверяем, не является ли правый операнд тоже умножением на -1
                     if ((*node)->right != NULL && (*node)->right->type == NODE_OP &&
                         (*node)->right->data.op_value == OP_MUL)
                     {
@@ -1107,14 +676,12 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
                         if (right_node->left != NULL && right_node->left->type == NODE_NUM &&
                             is_minus_one(right_node->left->data.num_value))
                         {
-                            // -1 * (-1 * A) => A
                             new_node = CopyNode(right_node->right);
                             description = "double minus simplified";
                         }
                         else if (right_node->right != NULL && right_node->right->type == NODE_NUM &&
                                  is_minus_one(right_node->right->data.num_value))
                         {
-                            // -1 * (A * -1) => A
                             new_node = CopyNode(right_node->left);
                             description = "double minus simplified";
                         }
@@ -1122,15 +689,13 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
                     else if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
                              is_minus_one((*node)->right->data.num_value))
                     {
-                        // -1 * -1 => 1
-                        new_node = CREATE_NUM(1.0);
+                        new_node = NUM(1.0);
                         description = "minus times minus simplified";
                     }
                 }
                 else if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
                          is_minus_one((*node)->right->data.num_value))
                 {
-                    // проверяем, не является ли левый операнд тоже умножением на -1
                     if ((*node)->left != NULL && (*node)->left->type == NODE_OP &&
                         (*node)->left->data.op_value == OP_MUL)
                     {
@@ -1138,14 +703,12 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
                         if (left_node->left != NULL && left_node->left->type == NODE_NUM &&
                             is_minus_one(left_node->left->data.num_value))
                         {
-                            // (-1 * A) * -1 => A
                             new_node = CopyNode(left_node->right);
                             description = "double minus simplified";
                         }
                         else if (left_node->right != NULL && left_node->right->type == NODE_NUM &&
                                  is_minus_one(left_node->right->data.num_value))
                         {
-                            // (A * -1) * -1 => A
                             new_node = CopyNode(left_node->left);
                             description = "double minus simplified";
                         }
@@ -1158,7 +721,7 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
                     (*node)->right != NULL &&
                     !((*node)->right->type == NODE_NUM && is_zero((*node)->right->data.num_value)))
                 {
-                    new_node = CREATE_NUM(0.0);
+                    new_node = NUM(0.0);
                     description = "0 / simplified";
                 }
                 else if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
@@ -1172,7 +735,7 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
                 if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
                     is_zero((*node)->right->data.num_value))
                 {
-                    new_node = CREATE_NUM(1.0);
+                    new_node = NUM(1.0);
                     description = "^0 simplified";
                 }
                 else if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
@@ -1184,7 +747,7 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
                 else if ((*node)->left != NULL && (*node)->left->type == NODE_NUM &&
                          is_one((*node)->left->data.num_value))
                 {
-                    new_node = CREATE_NUM(1.0);
+                    new_node = NUM(1.0);
                     description = "1^ simplified";
                 }
                 break;
@@ -1200,7 +763,6 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
             if (EvaluateTree(tree, var_table, &new_result) == TREE_ERROR_NO && tex_file != NULL)
             {
                 DumpOptimizationStepToFile(tex_file, description, tree, new_result);
-                TreeDump(tree, "vova_hochet_glyanut.htm"); //ЭТО ИМЕННО РЕСПЕКТ
             }
         }
     }
@@ -1286,10 +848,7 @@ TreeErrorType OptimizeTreeWithDump(Tree* tree, FILE* tex_file, VariableTable* va
     return TREE_ERROR_NO;
 }
 
-// ==================== UNDEF MACROS ====================
-#undef CREATE_NUM
-#undef CREATE_OP
-#undef CREATE_UNARY_OP
-#undef CREATE_VAR
-#undef CHECK_AND_CREATE
-#undef RELEASE_IF_NULL
+// ==================== РАЗЛОЖЕНИЕ В РЯД ТЕЙЛОРА ====================
+
+
+#include "DSL_undef.h"

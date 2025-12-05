@@ -5,28 +5,9 @@
 #include <ctype.h>
 #include <string.h>
 #include "tree_base.h"
+#include "DSL.h"
 
 //FIXME надо возвращать позицию где произошла синтаксическая ошибка
-
-// ==================== DSL ДЛЯ СОЗДАНИЯ УЗЛОВ ====================
-#define CREATE_NUM(value)          CreateNode(NODE_NUM, (ValueOfTreeElement){.num_value = (value)}, NULL, NULL)
-#define CREATE_OP(op, left, right) CreateNode(NODE_OP,  (ValueOfTreeElement){.op_value = (op)}, (left), (right))
-#define CREATE_UNARY_OP(op, right) CreateNode(NODE_OP,  (ValueOfTreeElement){.op_value = (op)}, NULL, (right))
-#define CREATE_VAR(name)           CreateNode(NODE_VAR, (ValueOfTreeElement){.var_definition = (VariableDefinition){.name = strdup(name), .hash = ComputeHash(name)}}, NULL, NULL)
-
-#define CHECK_AND_CREATE(condition, creator) \
-    ((condition) ? (creator) : (NULL))
-
-#define RELEASE_IF_NULL(ptr, ...) \
-    do { \
-        if (!(ptr)) \
-        {           \
-            Node* nodes[] = {__VA_ARGS__}; \
-            for (size_t i = 0; i < sizeof(nodes)/sizeof(nodes[0]); i++) \
-                if (nodes[i]) FreeSubtree(nodes[i]); \
-        } \
-    } while(0)
-// ===================================================================
 
 static ParserContext* CreateParserContext(VariableTable* var_table)
 {
@@ -69,6 +50,64 @@ static void InitializeOperationHashes(ParserContext* context)
     }
 
     context->hashes_initialized = true;
+}
+
+// Функция-обертка для создания операций с проверкой ошибок
+static Node* CreateOperation(OperationType op, Node* left, Node* right)
+{
+    Node* result = NULL;
+
+    if (op == OP_SIN || op == OP_COS || op == OP_LN || op == OP_EXP)
+    {
+        // Унарные операции
+        switch (op)
+        {
+            case OP_SIN: result = SIN(right); break;
+            case OP_COS: result = COS(right); break;
+            case OP_LN:  result = LN(right);  break;
+            case OP_EXP: result = EXP(right); break;
+            default: break;
+        }
+
+        if (!result && right)
+        {
+            FREE_NODES(1, right);
+        }
+    }
+    else
+    {
+        // Бинарные операции
+        switch (op)
+        {
+            case OP_ADD: result = ADD(left, right); break;
+            case OP_SUB: result = SUB(left, right); break;
+            case OP_MUL: result = MUL(left, right); break;
+            case OP_DIV: result = DIV(left, right); break;
+            case OP_POW: result = POW(left, right); break;
+            default: break;
+        }
+
+        if (!result)
+        {
+            FREE_NODES(2, left, right);
+        }
+    }
+
+    return result;
+}
+
+static Node* CreateVariableNode(const char* name)
+{
+    if (!name)
+        return NULL;
+
+    ValueOfTreeElement data = {};
+    data.var_definition.name = strdup(name);
+    if (!data.var_definition.name)
+        return NULL;
+
+    data.var_definition.hash = ComputeHash(name);
+    return CreateNode(NODE_VAR, data, NULL, NULL);
 }
 
 Node* GetG(const char** string, VariableTable* var_table)
@@ -119,11 +158,9 @@ Node* GetE(const char** string, ParserContext* context)
             return NULL;
         }
 
-        Node* new_val = CREATE_OP(op, val, val2);
+        Node* new_val = CreateOperation(op, val, val2);
         if (!new_val)
         {
-            FreeSubtree(val);
-            FreeSubtree(val2);
             return NULL;
         }
         val = new_val;
@@ -154,11 +191,9 @@ Node* GetT(const char** string, ParserContext* context)
             return NULL;
         }
 
-        Node* new_val = CREATE_OP(op, val, val2);
+        Node* new_val = CreateOperation(op, val, val2);
         if (!new_val)
         {
-            FreeSubtree(val);
-            FreeSubtree(val2);
             return NULL;
         }
         val = new_val;
@@ -186,11 +221,9 @@ Node* GetF(const char** string, ParserContext* context)
             return NULL;
         }
 
-        Node* new_val = CREATE_OP(OP_POW, val, exponent);
+        Node* new_val = CreateOperation(OP_POW, val, exponent);
         if (!new_val)
         {
-            FreeSubtree(val);
-            FreeSubtree(exponent);
             return NULL;
         }
         val = new_val;
@@ -247,7 +280,7 @@ Node* GetN(const char** string)
         int val = 0;
         const char* start = *string;
 
-        while ('0' <= **string && **string <= '9')
+        while ('0' <= **string && **string <= '9') //FIXME
         {
             val = **string - '0' + val * 10;
             (*string)++;
@@ -259,7 +292,7 @@ Node* GetN(const char** string)
             return NULL;
         }
 
-        return CREATE_NUM((double)val);
+        return NUM((double)val);
     }
 
     return NULL;
@@ -297,11 +330,8 @@ Node* GetV(const char** string, ParserContext* context)
         return NULL;
     }
 
-    ValueOfTreeElement data = {};
-    data.var_definition.name = strdup(var_name);
-    data.var_definition.hash = ComputeHash(var_name);
-
-    return CreateNode(NODE_VAR, data, NULL, NULL);
+    return CreateVariableNode(var_name);
+    // return VAR(var_name); //FIXME какая-то хуйня происходит в этом случае
 }
 
 static bool FindOperationByName(ParserContext* context, const char* func_name, OperationType* found_op) //используется в GetV
@@ -363,7 +393,7 @@ Node* GetFunction(const char** string, ParserContext* context)
         return NULL;
     }
 
-    return CREATE_UNARY_OP(found_op, arg);
+    return CreateOperation(found_op, NULL, arg);
 }
 
 void SyntaxError()
@@ -371,10 +401,5 @@ void SyntaxError()
     printf("Syntax error!\n");
 }
 
-// ==================== UNDEF MACROS ====================
-#undef CREATE_NUM
-#undef CREATE_OP
-#undef CREATE_UNARY_OP
-#undef CREATE_VAR
-#undef CHECK_AND_CREATE
-#undef RELEASE_IF_NULL
+#include "DSL_undef.h"
+

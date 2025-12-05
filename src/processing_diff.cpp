@@ -45,7 +45,7 @@ TreeErrorType InitializeExpression(DifferentiatorStruct* diff_struct, int argc, 
     const char* input_file = GetDataBaseFilename(argc, argv);
     if (!input_file)
     {
-        return TREE_ERROR_NO_VARIABLES; // Или создать отдельный код ошибки для отсутствия файла
+        return TREE_ERROR_NO_VARIABLES;
     }
 
     diff_struct->expression = ReadExpressionFromFile(input_file);
@@ -155,57 +155,14 @@ TreeErrorType OptimizeExpressionTree(DifferentiatorStruct* diff_struct)
     return TREE_ERROR_NO;
 }
 
-TreeErrorType PlotFunctionGraph(DifferentiatorStruct* diff_struct)
-{
-    if (!diff_struct || !diff_struct->tex_file) return TREE_ERROR_NULL_PTR;
-
-    bool has_x_variable = false;
-    double x_value = 0.0;
-
-    for (int i = 0; i < diff_struct->var_table.number_of_variables; i++)
-    {
-        if (strcmp(diff_struct->var_table.variables[i].name, "x") == 0)
-        {
-            has_x_variable = true;
-            x_value = diff_struct->var_table.variables[i].value;
-            break;
-        }
-    }
-
-    if (!has_x_variable)
-    {
-        fprintf(diff_struct->tex_file, "\\section*{Graph of the Function}\n");
-        fprintf(diff_struct->tex_file, "Cannot plot graph: variable 'x' not found in expression.\n");
-        return TREE_ERROR_NO; // это не ошибка, просто нет переменной x
-    }
-
-    fprintf(diff_struct->tex_file, "\\section*{Graph of the Function}\n");
-
-    char latex_expr[kMaxLengthOfTexExpression] = {0};
-    int pos = 0;
-    TreeToStringSimple(diff_struct->tree.root, latex_expr, &pos, sizeof(latex_expr));
-
-    char* pgfplot_expr = ConvertLatexToPGFPlot(latex_expr);
-    if (!pgfplot_expr)
-    {
-        fprintf(diff_struct->tex_file, "Failed to convert expression for plotting.\n");
-        return TREE_ERROR_ALLOCATION;
-    }
-
-    printf("Plot expression: %s\n", pgfplot_expr);
-
-    double x_min = x_value - 5.0;
-    double x_max = x_value + 5.0;
-
-    AddLatexPlot(diff_struct->tex_file, pgfplot_expr, x_min, x_max, "Function Graph");
-    free(pgfplot_expr);
-
-    return TREE_ERROR_NO;
-}
-
 TreeErrorType PerformDifferentiationProcess(DifferentiatorStruct* diff_struct)
 {
-    if (!diff_struct || !diff_struct->tex_file) return TREE_ERROR_NULL_PTR;
+    if (!diff_struct || !diff_struct->tex_file)
+        return TREE_ERROR_NULL_PTR;
+
+    char original_expr[kMaxLengthOfTexExpression] = {0};
+    int pos = 0;
+    TreeToStringSimple(diff_struct->tree.root, original_expr, &pos, sizeof(original_expr));
 
     fprintf(diff_struct->tex_file, "\\section*{Differentiation}\n");
 
@@ -243,6 +200,11 @@ TreeErrorType PerformDifferentiationProcess(DifferentiatorStruct* diff_struct)
         {
             printf("Derivative %d: %.6f\n", i + 1, derivative_results[i]);
             actual_derivative_count++;
+
+            fprintf(diff_struct->tex_file, "Look at the original expression:\n");
+            fprintf(diff_struct->tex_file, "\\begin{dmath} f(x) = %s \\end{dmath}\n\n", original_expr);
+
+            fprintf(diff_struct->tex_file, "And look at optimized derivative:\n");
 
             DumpDerivativeToFile(diff_struct->tex_file, &derivative_trees[i], derivative_results[i], i + 1);
         }

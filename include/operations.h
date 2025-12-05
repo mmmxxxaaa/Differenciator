@@ -12,7 +12,10 @@ size_t CountTreeNodes(Node* node);
 TreeErrorType EvaluateTree(Tree* tree, VariableTable* var_table, double* result);
 TreeErrorType DifferentiateTree(Tree* tree, const char* variable_name, Tree* result_tree);
 Node* CreateNode(NodeType type, ValueOfTreeElement data, Node* left, Node* right);
-Node* CreateNodeFromToken(const char* token, Node* parent);
+Node* CopyNode(Node* original);
+// Node* CreateNodeFromToken(const char* token, Node* parent);
 TreeErrorType OptimizeTreeWithDump(Tree* tree, FILE* tex_file, VariableTable* var_table);
+TreeErrorType TaylorSeries(Tree* original, const char* var_name,
+                          Tree* result_tree, VariableTable* var_table);
 
 #endif // DIFF_OPERATIONS
