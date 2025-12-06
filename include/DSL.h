@@ -23,12 +23,23 @@
 #define POW(left, right) CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_POW}, (left), (right))
 
 // Унарные операции
-#define SIN(arg)  CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_SIN}, NULL, (arg))
-#define COS(arg)  CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_COS}, NULL, (arg))
-#define LN(arg)   CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_LN}, NULL, (arg))
-#define EXP(arg)  CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_EXP}, NULL, (arg))
+#define SIN(arg)    CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_SIN},    NULL, (arg))
+#define COS(arg)    CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_COS},    NULL, (arg))
+#define LN(arg)     CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_LN},     NULL, (arg))
+#define EXP(arg)    CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_EXP},    NULL, (arg))
+#define TAN(x)      CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_TAN},    NULL, x)
+#define COT(x)      CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_COT},    NULL, x)
+#define ARCSIN(x)   CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_ARCSIN}, NULL, x)
+#define ARCCOS(x)   CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_ARCCOS}, NULL, x)
+#define ARCTAN(x)   CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_ARCTAN}, NULL, x)
+#define ARCCOT(x)   CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_ARCCOT}, NULL, x)
+#define SINH(x)     CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_SINH},   NULL, x)
+#define COSH(x)     CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_COSH},   NULL, x)
+#define TANH(x)     CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_TANH},   NULL, x)
+#define COTH(x)     CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_COTH},   NULL, x)
+#define SQRT(x)     CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_POW}, x, NUM(0.5))
 
-// ==================== ДЛЯ ДИФФЕРЕНЦИРОВАНИЯ ==================== //FIXME
+// ==================== ДЛЯ ДИФФЕРЕНЦИРОВАНИЯ ====================
 #define U  COPY(node->left)
 #define V  COPY(node->right)
 #define DU DIFF(node->left, variable_name)

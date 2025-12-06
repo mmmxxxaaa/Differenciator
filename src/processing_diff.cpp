@@ -208,7 +208,7 @@ TreeErrorType PerformDifferentiationProcess(DifferentiatorStruct* diff_struct)
             actual_derivative_count++;
 
             fprintf(diff_struct->tex_file, "Original expression:\n");
-            fprintf(diff_struct->tex_file, "\\begin{dmath} f(x) = %s \\end{dmath}\\newline\n\n", original_expr);
+            fprintf(diff_struct->tex_file, "\\begin{dmath} f(x) = %s \\end{dmath}\n\n", original_expr);
 
             fprintf(diff_struct->tex_file, "Optimized derivative:\n");
 

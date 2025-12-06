@@ -6,8 +6,8 @@
 #include <string.h>
 #include "tree_base.h"
 #include "DSL.h"
+#include "logic_functions.h"
 
-//FIXME надо возвращать позицию где произошла синтаксическая ошибка
 
 static ParserContext* CreateParserContext(VariableTable* var_table)
 {
@@ -15,7 +15,17 @@ static ParserContext* CreateParserContext(VariableTable* var_table)
         {0, "sin", OP_SIN},
         {0, "cos", OP_COS},
         {0, "ln", OP_LN},
-        {0, "exp", OP_EXP}
+        {0, "exp", OP_EXP},
+        {0, "tan", OP_TAN},
+        {0, "cot", OP_COT},
+        {0, "arcsin", OP_ARCSIN},
+        {0, "arccos", OP_ARCCOS},
+        {0, "arctan", OP_ARCTAN},
+        {0, "arccot", OP_ARCCOT},
+        {0, "sinh", OP_SINH},
+        {0, "cosh", OP_COSH},
+        {0, "tanh", OP_TANH},
+        {0, "coth", OP_COTH}
     };
 
     static size_t default_operations_count = sizeof(default_operations) / sizeof(default_operations[0]);
@@ -29,6 +39,7 @@ static ParserContext* CreateParserContext(VariableTable* var_table)
     context->operations = default_operations; //сохраняем указатель на статический массив зарезервированных операций
     context->operations_count = default_operations_count;
     context->hashes_initialized = false;
+    context->original_string = NULL;
 
     return context;
 }
@@ -56,14 +67,24 @@ static Node* CreateOperation(OperationType op, Node* left, Node* right)
 {
     Node* result = NULL;
 
-    if (op == OP_SIN || op == OP_COS || op == OP_LN || op == OP_EXP)
+    if (is_unary(op))
     {
         switch (op)
         {
-            case OP_SIN: result = SIN(right); break;
-            case OP_COS: result = COS(right); break;
-            case OP_LN:  result = LN(right);  break;
-            case OP_EXP: result = EXP(right); break;
+            case OP_SIN:    result = SIN(right);    break;
+            case OP_COS:    result = COS(right);    break;
+            case OP_TAN:    result = TAN(right);    break;
+            case OP_COT:    result = COT(right);    break;
+            case OP_LN:     result = LN(right);     break;
+            case OP_EXP:    result = EXP(right);    break;
+            case OP_ARCSIN: result = ARCSIN(right); break;
+            case OP_ARCCOS: result = ARCCOS(right); break;
+            case OP_ARCTAN: result = ARCTAN(right); break;
+            case OP_ARCCOT: result = ARCCOT(right); break;
+            case OP_SINH:   result = SINH(right);   break;
+            case OP_COSH:   result = COSH(right);   break;
+            case OP_TANH:   result = TANH(right);   break;
+            case OP_COTH:   result = COTH(right);   break;
             default: break;
         }
 
@@ -116,12 +137,15 @@ Node* GetGovnoNaBosuNogu(const char** string, VariableTable* var_table)
     if (!context)
         return NULL;
 
+    context->original_string = *string;
+
     Node* val = GetE(string, context);
 
     if (**string != '$')
     {
         printf("Expected end of expression '$'\n");
         SyntaxError();
+        printf("%s\n", *string);
         if (val)
             FreeSubtree(val);
 

@@ -178,105 +178,6 @@ const char* GetNodeColor(Node* node, Tree* tree)
         return "lightblue";
 }
 
-static void WriteHighlightedBuffer(FILE* htm_file, const char* buffer, size_t buffer_length, size_t pos)
-{
-    if (buffer == NULL || htm_file == NULL)
-        return;
-
-    fprintf(htm_file, "<div style='margin:10px 0; padding:10px; background:#f5f5f5; border:1px solid #ddd; font-family:monospace; font-size:14px;'>\n");
-    fprintf(htm_file, "<p style='margin:0 0 5px 0; font-weight:bold;'>Текущая позиция в буфере: %lu</p>\n", pos);
-    fprintf(htm_file, "<div style='background:white; padding:8px; border:1px solid #ccc; word-wrap:break-word;'>\n");
-
-    // до текущей позиции в серый цвет
-    if (pos > 0)
-    {
-        fprintf(htm_file, "<span style='color:#666;'>");
-        for (size_t i = 0; i < pos; i++)
-        {
-            if (buffer[i] != '\0')
-                fputc(buffer[i], htm_file);
-            else
-                fputc('"', htm_file);
-        }
-        fprintf(htm_file, "</span>");
-    }
-    printf("buffer_length: %lu pos:%lu\n", buffer_length, pos);
-
-    // текущий символ красный цвет с подсветкой
-    if (pos < buffer_length)
-        fprintf(htm_file, "<span style='color:red; font-weight:bold; background:#ffe6e6;"
-                          " padding:1px 3px; border:1px solid #ff9999; border-radius:2px;'>%c</span>",
-                buffer[pos]);
-    else
-        fprintf(htm_file, "<span style='color:red; font-weight:bold; background:#ffe6e6; padding:1px 3px; border:1px solid #ff9999; border-radius:2px;'>КОНЕЦ</span>");
-
-    // часть после текущей позиции - синий цвет
-    if (pos + 1 < buffer_length)
-    {
-        fprintf(htm_file, "<span style='color:#0066cc;'>");
-        for (size_t i = pos + 1; i < buffer_length; i++)
-        {
-            if (buffer[i] != '\0')
-                fputc(buffer[i], htm_file);
-            else
-                fputc('"', htm_file);
-        }
-        fprintf(htm_file, "</span>");
-    }
-
-    fprintf(htm_file, "</div>\n");
-
-    fprintf(htm_file, "</div>\n");
-}
-
-void WriteTreeInfo(FILE* htm_file, Tree* tree, const char* buffer, size_t buffer_length, size_t buffer_pos)
-{
-    assert(htm_file);
-
-    fprintf(htm_file, "<div style='margin-bottom:15px;'>\n");
-
-    if (tree != NULL)
-    {
-        fprintf(htm_file, "<p><b>Размер дерева:</b> %lu</p>\n", tree->size);
-
-        if (tree->root != NULL)
-        {
-            char root_buffer[kMaxDotBufferLength] = {};
-            const char* root_data_str = NodeDataToString(tree->root, root_buffer, sizeof(root_buffer));
-
-            fprintf(htm_file, "<p><b>Адрес корня:</b> %p</p>\n", (void*)tree->root);
-            fprintf(htm_file, "<p><b>Данные корня:</b> %s</p>\n", root_data_str);
-        }
-        else
-        {
-            fprintf(htm_file, "<p><b>Корень:</b> NULL</p>\n");
-        }
-    }
-    else
-    {
-        fprintf(htm_file, "<p><b>Дерево:</b> NULL (парсинг в процессе)</p>\n");
-    }
-
-    if (buffer != NULL)
-        WriteHighlightedBuffer(htm_file, buffer, buffer_length, buffer_pos);
-
-    if (tree != NULL)
-    {
-        TreeVerifyResult verify_result = VerifyTree(tree);
-        const char* verify_result_in_string = TreeVerifyResultToString(verify_result);
-        const char* verify_color = (verify_result == TREE_VERIFY_SUCCESS) ? "green" : "red";
-
-        fprintf(htm_file, "<p><b>Результат проверки:</b> <span style='color:%s; font-weight: bold;'>%s</span></p>\n",
-                verify_color, verify_result_in_string);
-    }
-    else
-    {
-        fprintf(htm_file, "<p><b>Результат проверки:</b> <span style='color:gray; font-weight: bold;'>N/A (парсинг)</span></p>\n");
-    }
-
-    fprintf(htm_file, "</div>\n");
-}
-
 TreeErrorType WriteTreeCommonPicture(Tree* tree, FILE* htm_file, const char* folder_path, const char* folder_name)
 {
     static int n_of_pictures = 0;
@@ -350,7 +251,6 @@ TreeErrorType TreeDumpToHtm(Tree* tree, FILE* htm_file, const char* folder_path,
     time_t now = time(NULL);
 
     WriteDumpHeader(htm_file, now, comment);
-    WriteTreeInfo(htm_file, tree, NULL, 0, 0);
 
     if (tree != NULL && tree->root != NULL)
     {

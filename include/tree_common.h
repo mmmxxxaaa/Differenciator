@@ -30,17 +30,26 @@ typedef enum {
 
 typedef enum {
     OP_ADD,
+    OP_SUB,
     OP_MUL,
     OP_DIV,
-    OP_SUB,
+    OP_POW,
     OP_SIN,
     OP_COS,
-    OP_POW,
+    OP_TAN,
+    OP_COT,
+    OP_ARCSIN,
+    OP_ARCCOS,
+    OP_ARCTAN,
+    OP_ARCCOT,
+    OP_SINH,
+    OP_COSH,
+    OP_TANH,
+    OP_COTH,
     OP_LN,
     OP_EXP,
     OP_COUNT
 } OperationType;
-//FIXME можно сделать так чтобы табл переменных держала в себе всю память для переменных а дерево только знало указатели, которые держит таблица
 
 typedef struct {
     unsigned int hash;

@@ -56,9 +56,8 @@ static TreeErrorType EvaluateTreeRecursive(Node* node, VariableTable* var_table,
 
                 if (node->right == NULL)
                     return TREE_ERROR_NULL_PTR;
-// FIXME - dsl for checking operation
-                if (node->data.op_value != OP_SIN && node->data.op_value != OP_COS &&
-                    node->data.op_value != OP_LN && node->data.op_value != OP_EXP)
+
+                if (is_binary(node->data.op_value))
                 {
                     if (node->left == NULL)
                         return TREE_ERROR_NULL_PTR;
@@ -74,7 +73,6 @@ static TreeErrorType EvaluateTreeRecursive(Node* node, VariableTable* var_table,
 
                 switch (node->data.op_value)
                 {
-                // FIXME - dsl
                     case OP_ADD:
                         *result = left_result + right_result;
                         break;
@@ -94,6 +92,44 @@ static TreeErrorType EvaluateTreeRecursive(Node* node, VariableTable* var_table,
                         break;
                     case OP_COS:
                         *result = cos(right_result);
+                        break;
+                    case OP_TAN:
+                        *result = tan(right_result);
+                        break;
+                    case OP_COT:
+                        if (is_zero(tan(right_result)))
+                            return TREE_ERROR_DIVISION_BY_ZERO;
+                        *result = 1.0 / tan(right_result);
+                        break;
+                    case OP_ARCSIN:
+                        if (right_result < -1.0 || right_result > 1.0)
+                            return TREE_ERROR_MATH_DOMAIN;
+                        *result = asin(right_result);
+                        break;
+                    case OP_ARCCOS:
+                        if (right_result < -1.0 || right_result > 1.0)
+                            return TREE_ERROR_MATH_DOMAIN;
+                        *result = acos(right_result);
+                        break;
+                    case OP_ARCTAN:
+                        *result = atan(right_result);
+                        break;
+                    case OP_ARCCOT:
+                        *result = M_PI/2.0 - atan(right_result);
+                        break;
+                    case OP_SINH:
+                        *result = sinh(right_result);
+                        break;
+                    case OP_COSH:
+                        *result = cosh(right_result);
+                        break;
+                    case OP_TANH:
+                        *result = tanh(right_result);
+                        break;
+                    case OP_COTH:
+                        if (is_zero(tanh(right_result)))
+                            return TREE_ERROR_DIVISION_BY_ZERO;
+                        *result = 1.0 / tanh(right_result);
                         break;
                     case OP_POW:
                         *result = pow(left_result, right_result);
@@ -178,12 +214,11 @@ Node* CreateNode(NodeType type, ValueOfTreeElement data, Node* left, Node* right
     node->parent = NULL;
     node->data = data;
 
-    // Устанавливаем приоритет в зависимости от типа узла
     switch (type)
     {
         case NODE_NUM:
         case NODE_VAR:
-            node->priority = 0;  // Наименьший приоритет для чисел и переменных
+            node->priority = 0;
             break;
 
         case NODE_OP:
@@ -191,23 +226,23 @@ Node* CreateNode(NodeType type, ValueOfTreeElement data, Node* left, Node* right
             {
                 case OP_ADD:
                 case OP_SUB:
-                    node->priority = 1;  // Низкий приоритет для сложения/вычитания
+                    node->priority = 1;
                     break;
 
                 case OP_MUL:
                 case OP_DIV:
-                    node->priority = 2;  // Средний приоритет для умножения/деления
+                    node->priority = 2;
                     break;
 
                 case OP_SIN:
                 case OP_COS:
                 case OP_LN:
                 case OP_EXP:
-                    node->priority = 3;  // Высокий приоритет для унарных операций
+                    node->priority = 3;
                     break;
 
                 case OP_POW:
-                    node->priority = 4;  // Наивысший приоритет для степени
+                    node->priority = 4;
                     break;
 
                 default:
@@ -414,9 +449,70 @@ static Node* DifferentiateNode(Node* node, const char* variable_name)
                         return MUL(u_pow_v, bracket);
                     }
                 }
+                case OP_TAN:
+                    return MUL(DIV(NUM(1.0),
+                                   MUL(COS(COPY(node->right)),
+                                       COS(COPY(node->right)))),
+                               DIFF(node->right, variable_name));
 
-                default:
-                    return NUM(0.0);
+                case OP_COT:
+                    return MUL(NUM(-1.0),
+                               MUL(DIV(NUM(1.0),
+                                       MUL(SIN(COPY(node->right)),
+                                           SIN(COPY(node->right)))),
+                                   DIFF(node->right, variable_name)));
+
+                case OP_ARCSIN:
+                    return MUL(DIV(NUM(1.0),
+                                   SQRT(SUB(NUM(1.0),
+                                            MUL(COPY(node->right),
+                                                COPY(node->right))))),
+                               DIFF(node->right, variable_name));
+
+                case OP_ARCCOS:
+                    return MUL(NUM(-1.0),
+                               MUL(DIV(NUM(1.0),
+                                       SQRT(SUB(NUM(1.0),
+                                                MUL(COPY(node->right),
+                                                    COPY(node->right))))),
+                                   DIFF(node->right, variable_name)));
+
+                case OP_ARCTAN:
+                    return MUL(DIV(NUM(1.0),
+                                   ADD(NUM(1.0),
+                                       MUL(COPY(node->right),
+                                           COPY(node->right)))),
+                               DIFF(node->right, variable_name));
+
+                case OP_ARCCOT:
+                    return MUL(NUM(-1.0),
+                               MUL(DIV(NUM(1.0),
+                                       ADD(NUM(1.0),
+                                           MUL(COPY(node->right),
+                                               COPY(node->right)))),
+                                   DIFF(node->right, variable_name)));
+
+                case OP_SINH:
+                    return MUL(COSH(COPY(node->right)),
+                               DIFF(node->right, variable_name));
+
+                case OP_COSH:
+                    return MUL(SINH(COPY(node->right)),
+                               DIFF(node->right, variable_name));
+
+                case OP_TANH:
+                    return MUL(SUB(NUM(1.0),
+                                   MUL(TANH(COPY(node->right)),
+                                       TANH(COPY(node->right)))),
+                               DIFF(node->right, variable_name));
+
+                case OP_COTH:
+                    return MUL(SUB(NUM(1.0),
+                                   MUL(COTH(COPY(node->right)),
+                                       COTH(COPY(node->right)))),
+                               DIFF(node->right, variable_name));
+                                default:
+                                    return NUM(0.0);
             }
 
         default:
@@ -482,9 +578,7 @@ static TreeErrorType ConstantFoldingOptimizationWithDump(Node** node, FILE* tex_
     if ((*node)->type == NODE_OP)
     {
     // FIXME - dsl
-        if (((*node)->data.op_value == OP_SIN || (*node)->data.op_value == OP_COS ||
-             (*node)->data.op_value == OP_LN  || (*node)->data.op_value == OP_EXP) &&
-            (*node)->right != NULL && (*node)->right->type == NODE_NUM)
+        if (is_unary((*node)->data.op_value) && IsNodeType((*node)->right, NODE_NUM))
         {
             double result = 0.0;
             bool can_fold = true;
@@ -496,6 +590,48 @@ static TreeErrorType ConstantFoldingOptimizationWithDump(Node** node, FILE* tex_
                     break;
                 case OP_COS:
                     result = cos((*node)->right->data.num_value);
+                    break;
+                case OP_TAN:
+                    result = tan((*node)->right->data.num_value);
+                    break;
+                case OP_COT:
+                    if (is_zero(tan((*node)->right->data.num_value)))
+                        can_fold = false;
+                    else
+                        result = 1.0 / tan((*node)->right->data.num_value);
+                    break;
+                case OP_ARCSIN:
+                    if ((*node)->right->data.num_value < -1.0 || (*node)->right->data.num_value > 1.0)
+                        can_fold = false;
+                    else
+                        result = asin((*node)->right->data.num_value);
+                    break;
+                case OP_ARCCOS:
+                    if ((*node)->right->data.num_value < -1.0 || (*node)->right->data.num_value > 1.0)
+                        can_fold = false;
+                    else
+                        result = acos((*node)->right->data.num_value);
+                    break;
+                case OP_ARCTAN:
+                    result = atan((*node)->right->data.num_value);
+                    break;
+                case OP_ARCCOT:
+                    result = M_PI/2.0 - atan((*node)->right->data.num_value);
+                    break;
+                case OP_SINH:
+                    result = sinh((*node)->right->data.num_value);
+                    break;
+                case OP_COSH:
+                    result = cosh((*node)->right->data.num_value);
+                    break;
+                case OP_TANH:
+                    result = tanh((*node)->right->data.num_value);
+                    break;
+                case OP_COTH:
+                    if (is_zero(tanh((*node)->right->data.num_value)))
+                        can_fold = false;
+                    else
+                        result = 1.0 / tanh((*node)->right->data.num_value);
                     break;
                 case OP_LN:
                     if ((*node)->right->data.num_value <= 0)
@@ -530,8 +666,7 @@ static TreeErrorType ConstantFoldingOptimizationWithDump(Node** node, FILE* tex_
             }
         }
         // FIXME - dsl
-        else if ((*node)->left  != NULL && (*node)->left->type  == NODE_NUM &&
-                 (*node)->right != NULL && (*node)->right->type == NODE_NUM)
+        else if (IsNodeType((*node)->left, NODE_NUM) && IsNodeType((*node)->right, NODE_NUM))
         {
             double left_val  = (*node)->left->data.num_value;
             double right_val = (*node)->right->data.num_value;
@@ -613,13 +748,13 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
         {
         // FIXME - dsl
             case OP_ADD:
-                if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
+                if (IsNodeType((*node)->right, NODE_NUM) &&
                     is_zero((*node)->right->data.num_value))
                 {
                     new_node = CopyNode((*node)->left);
                     description = "adding zero simplified";
                 }
-                else if ((*node)->left != NULL && (*node)->left->type == NODE_NUM &&
+                else if (IsNodeType((*node)->left, NODE_NUM) &&
                          is_zero((*node)->left->data.num_value))
                 {
                     new_node = CopyNode((*node)->right);
@@ -628,7 +763,7 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
                 break;
 
             case OP_SUB:
-                if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
+                if (IsNodeType((*node)->right, NODE_NUM) &&
                     is_zero((*node)->right->data.num_value))
                 {
                     new_node = CopyNode((*node)->left);
@@ -637,47 +772,47 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
                 break;
 
             case OP_MUL:
-                if (((*node)->left != NULL && (*node)->left->type == NODE_NUM &&
+                if ((IsNodeType((*node)->left, NODE_NUM) &&
                      is_zero((*node)->left->data.num_value)) ||
-                    ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
+                    (IsNodeType((*node)->right, NODE_NUM) &&
                      is_zero((*node)->right->data.num_value)))
                 {
                     new_node = NUM(0.0);
                     description = "mul zero simplified";
                 }
-                else if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
+                else if (IsNodeType((*node)->right, NODE_NUM) &&
                          is_one((*node)->right->data.num_value))
                 {
                     new_node = CopyNode((*node)->left);
                     description = "mul one simplified";
                 }
-                else if ((*node)->left != NULL && (*node)->left->type == NODE_NUM &&
+                else if (IsNodeType((*node)->left, NODE_NUM) &&
                          is_one((*node)->left->data.num_value))
                 {
                     new_node = CopyNode((*node)->right);
                     description = "mul one simplified";
                 }
-                else if ((*node)->left != NULL && (*node)->left->type == NODE_NUM &&
+                else if (IsNodeType((*node)->left, NODE_NUM) &&
                          is_minus_one((*node)->left->data.num_value))
                 {
-                    if ((*node)->right != NULL && (*node)->right->type == NODE_OP &&
+                    if (IsNodeType((*node)->right, NODE_OP) &&
                         (*node)->right->data.op_value == OP_MUL)
                     {
                         Node* right_node = (*node)->right;
-                        if (right_node->left != NULL && right_node->left->type == NODE_NUM &&
+                        if (IsNodeType(right_node->left, NODE_NUM) &&
                             is_minus_one(right_node->left->data.num_value))
                         {
                             new_node = CopyNode(right_node->right);
                             description = "double minus simplified";
                         }
-                        else if (right_node->right != NULL && right_node->right->type == NODE_NUM &&
+                        else if (IsNodeType(right_node->right, NODE_NUM) &&
                                  is_minus_one(right_node->right->data.num_value))
                         {
                             new_node = CopyNode(right_node->left);
                             description = "double minus simplified";
                         }
                     }
-                    else if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
+                    else if (IsNodeType((*node)->right, NODE_NUM) &&
                              is_minus_one((*node)->right->data.num_value))
                     {
                         new_node = NUM(1.0);
@@ -687,17 +822,17 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
                 else if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
                          is_minus_one((*node)->right->data.num_value))
                 {
-                    if ((*node)->left != NULL && (*node)->left->type == NODE_OP &&
+                    if (IsNodeType((*node)->left, NODE_OP) &&
                         (*node)->left->data.op_value == OP_MUL)
                     {
                         Node* left_node = (*node)->left;
-                        if (left_node->left != NULL && left_node->left->type == NODE_NUM &&
+                        if (IsNodeType(left_node, NODE_NUM) &&
                             is_minus_one(left_node->left->data.num_value))
                         {
                             new_node = CopyNode(left_node->right);
                             description = "double minus simplified";
                         }
-                        else if (left_node->right != NULL && left_node->right->type == NODE_NUM &&
+                        else if (IsNodeType(left_node->right, NODE_NUM) &&
                                  is_minus_one(left_node->right->data.num_value))
                         {
                             new_node = CopyNode(left_node->left);
@@ -707,7 +842,7 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
                 }
                 break;
             case OP_DIV:
-                if ((*node)->left != NULL && (*node)->left->type == NODE_NUM &&
+                if (IsNodeType((*node)->left, NODE_NUM)&&
                     is_zero((*node)->left->data.num_value) &&
                     (*node)->right != NULL &&
                     !((*node)->right->type == NODE_NUM && is_zero((*node)->right->data.num_value)))
@@ -715,7 +850,7 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
                     new_node = NUM(0.0);
                     description = "0 / simplified";
                 }
-                else if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
+                else if (IsNodeType((*node)->right, NODE_NUM) &&
                          is_one((*node)->right->data.num_value))
                 {
                     new_node = CopyNode((*node)->left);
@@ -723,19 +858,19 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
                 }
                 break;
             case OP_POW:
-                if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
+                if (IsNodeType((*node)->right, NODE_NUM) &&
                     is_zero((*node)->right->data.num_value))
                 {
                     new_node = NUM(1.0);
                     description = "^0 simplified";
                 }
-                else if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
+                else if (IsNodeType((*node)->right, NODE_NUM) &&
                          is_one((*node)->right->data.num_value))
                 {
                     new_node = CopyNode((*node)->left);
                     description = "^1 simplified";
                 }
-                else if ((*node)->left != NULL && (*node)->left->type == NODE_NUM &&
+                else if (IsNodeType((*node)->left, NODE_NUM) &&
                          is_one((*node)->left->data.num_value))
                 {
                     new_node = NUM(1.0);
@@ -831,9 +966,11 @@ TreeErrorType OptimizeTreeWithDump(Tree* tree, FILE* tex_file, VariableTable* va
 
         char expression[kMaxLengthOfTexExpression] = {0};
         int pos = 0;
+
         TreeToStringSimple(tree->root, expression, &pos, sizeof(expression));
-        fprintf(tex_file, "Final expression: \\[ %s \\]\n\n", expression);
-        fprintf(tex_file, "Final result: \\[ %.6f \\]\n\n", result_after);
+        fprintf(tex_file, "Final expression: \\begin{dmath} %s \\end{dmath}\n\n", expression);
+        fprintf(tex_file, "Final result: \\begin{dmath} %.6f \\end{dmath}\n\n", result_after);
+        DumpVariableTableToFile(tex_file, var_table);
     }
 
     return TREE_ERROR_NO;

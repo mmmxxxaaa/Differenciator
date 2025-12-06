@@ -3,40 +3,37 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include "logic_functions.h"
+
+static const OpFormat formats[OP_COUNT] = {
+    /* OP_ADD */    {"", " + ", "",        true,  true,  false},
+    /* OP_SUB */    {"", " - ", "",        true,  true,  true },
+    /* OP_MUL */    {"", " \\cdot ", "",   true,  true,  false},
+    /* OP_DIV */    {"\\frac{", "}{", "}", false, true,  false},
+    /* OP_POW */    {"{", "}^{", "}",      false, true,  false},
+    /* OP_SIN */    {"\\sin(", "", ")",    false, false, false},
+    /* OP_COS */    {"\\cos(", "", ")",    false, false, false},
+    /* OP_TAN */    {"\\tan(", "", ")",    false, false, false},
+    /* OP_COT */    {"\\cot(", "", ")",    false, false, false},
+    /* OP_ARCSIN */ {"\\arcsin(", "", ")", false, false, false},
+    /* OP_ARCCOS */ {"\\arccos(", "", ")", false, false, false},
+    /* OP_ARCTAN */ {"\\arctan(", "", ")", false, false, false},
+    /* OP_ARCCOT */ {"\\arccot(", "", ")", false, false, false},
+    /* OP_SINH */   {"\\sinh(", "", ")",   false, false, false},
+    /* OP_COSH */   {"\\cosh(", "", ")",   false, false, false},
+    /* OP_TANH */   {"\\tanh(", "", ")",   false, false, false},
+    /* OP_COTH */   {"\\coth(", "", ")",   false, false, false},
+    /* OP_LN */     {"\\ln(", "", ")",     false, false, false},
+    /* OP_EXP */    {"e^{", "", "}",       false, false, false}
+};
 
 const OpFormat* GetOpFormat(OperationType op_type)
 {
-    static OpFormat formats[OP_COUNT] = {};
-    static bool initialized = false;
-
-    if (!initialized) {
-        formats[OP_ADD] = (OpFormat){"", " + ", "", true, true, false};
-        formats[OP_SUB] = (OpFormat){"", " - ", "", true, true, true};
-        formats[OP_MUL] = (OpFormat){"", " \\cdot ", "", true, true, false};
-        formats[OP_DIV] = (OpFormat){"\\frac{", "}{", "}", false, true, false};
-        formats[OP_POW] = (OpFormat){"{", "}^{", "}", false, true, false};
-        formats[OP_SIN] = (OpFormat){"\\sin(", "", ")", false, false, false};
-        formats[OP_COS] = (OpFormat){"\\cos(", "", ")", false, false, false};
-        formats[OP_LN]  = (OpFormat){"\\ln(", "", ")", false, false, false};
-        formats[OP_EXP] = (OpFormat){"e^{", "", "}", false, false, false};
-        initialized = true;
-    }
-
     if (op_type >= 0 && op_type < OP_COUNT)
     {
         return &formats[op_type];
     }
     return NULL;
-}
-
-bool IsNodeType(Node* node, NodeType type)
-{
-    return (node != NULL) && (node->type == type);
-}
-
-bool IsNodeOp(Node* node, OperationType op_type)
-{
-    return IsNodeType(node, NODE_OP) && (node->data.op_value == op_type);
 }
 
 void TreeToStringSimple(Node* node, char* buffer, int* pos, int buffer_size)
@@ -47,7 +44,11 @@ void TreeToStringSimple(Node* node, char* buffer, int* pos, int buffer_size)
     switch (node->type)
     {
         case NODE_NUM:
-            *pos += snprintf(buffer + *pos, buffer_size - *pos, "%g", node->data.num_value);
+            // для отрицательных чисел всегда добавляем скобки
+            if (node->data.num_value < 0)
+                *pos += snprintf(buffer + *pos, buffer_size - *pos, "(%g)", node->data.num_value);
+            else
+                *pos += snprintf(buffer + *pos, buffer_size - *pos, "%g", node->data.num_value);
             break;
 
         case NODE_VAR:
@@ -90,7 +91,7 @@ void TreeToStringSimple(Node* node, char* buffer, int* pos, int buffer_size)
                                           (node->left->priority < node->priority);
 
             bool right_needs_parentheses = false;
-            if (node->right && IsNodeType(node->right, NODE_OP))
+            if (IsNodeType(node->right, NODE_OP))
             {
                 if (fmt->right_use_less_equal)
                     right_needs_parentheses = (node->right->priority <= node->priority);
@@ -227,6 +228,66 @@ char* ConvertLatexToPGFPlot(const char* latex_expr)
         else if (*src == '\\')
         {
             src++;
+        }
+        else if (strncmp(src, "\\tan", 4) == 0)
+        {
+            strcpy(dest, "tan");
+            dest += 3;
+            src += 4;
+        }
+        else if (strncmp(src, "\\cot", 4) == 0)
+        {
+            strcpy(dest, "cot");
+            dest += 3;
+            src += 4;
+        }
+        else if (strncmp(src, "\\arcsin", 7) == 0)
+        {
+            strcpy(dest, "asin");
+            dest += 4;
+            src += 7;
+        }
+        else if (strncmp(src, "\\arccos", 7) == 0)
+        {
+            strcpy(dest, "acos");
+            dest += 4;
+            src += 7;
+        }
+        else if (strncmp(src, "\\arctan", 7) == 0)
+        {
+            strcpy(dest, "atan");
+            dest += 4;
+            src += 7;
+        }
+        else if (strncmp(src, "\\arccot", 7) == 0)
+        {
+            strcpy(dest, "atan");
+            dest += 4;
+            src += 7;
+        }
+        else if (strncmp(src, "\\sinh", 5) == 0)
+        {
+            strcpy(dest, "sinh");
+            dest += 4;
+            src += 5;
+        }
+        else if (strncmp(src, "\\cosh", 5) == 0)
+        {
+            strcpy(dest, "cosh");
+            dest += 4;
+            src += 5;
+        }
+        else if (strncmp(src, "\\tanh", 5) == 0)
+        {
+            strcpy(dest, "tanh");
+            dest += 4;
+            src += 5;
+        }
+        else if (strncmp(src, "\\coth", 5) == 0)
+        {
+            strcpy(dest, "coth");
+            dest += 4;
+            src += 5;
         }
         else
         {

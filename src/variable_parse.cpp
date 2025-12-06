@@ -57,7 +57,7 @@ int FindVariableByHash(VariableTable* ptr_table, unsigned int hash, const char* 
 
     while (left <= right)
     {
-        int middle = left + (right - left) / 2; //FIXME вот тут очко, функция компаратора должна подходить
+        int middle = left + (right - left) / 2;
 
         if (ptr_table->variables[middle].hash == hash)
         {
@@ -127,14 +127,14 @@ TreeErrorType SetVariableValue(VariableTable* ptr_table, const char* name_of_var
     if (index == -1)
         return TREE_ERROR_VARIABLE_NOT_FOUND;
 
-    printf("SetVariableValue: ДО УСТАНОВКИ - value = %.6f\n", value);
+    DEBUG_PRINT("SetVariableValue: ДО УСТАНОВКИ - value = %.6f\n", value);
     ptr_table->variables[index].value = value;
     // printf("PENIS: %f\n ---\n", value);
     // printf("ZALUPA: %f\n ---\n", ptr_table->variables[index].value);
-    printf("SetVariableValue: УСТАНОВЛЕНО - ptr_table->variables[%d].value = %.6f\n",
+    DEBUG_PRINT("SetVariableValue: УСТАНОВЛЕНО - ptr_table->variables[%d].value = %.6f\n",
            index, ptr_table->variables[index].value);
 
-    printf("SetVariableValue: ТЕКУЩЕЕ СОСТОЯНИЕ ТАБЛИЦЫ:\n"); //отладочная инфа
+    DEBUG_PRINT("SetVariableValue: ТЕКУЩЕЕ СОСТОЯНИЕ ТАБЛИЦЫ:\n"); //отладочная инфа
     for (int i = 0; i < ptr_table->number_of_variables; i++)
     {
         printf("  [%d] name='%s', value=%.6f\n",
@@ -171,7 +171,7 @@ TreeErrorType RequestVariableValue(VariableTable* ptr_table, const char* variabl
 
     double value = 0.0;
 
-    printf("RequestVariableValue: перед scanf, value = %.6f\n", value); //отладочная информация
+    DEBUG_PRINT("RequestVariableValue: перед scanf, value = %.6f\n", value); //отладочная информация
 
     if (scanf("%lf", &value) != 1)
     {
@@ -184,11 +184,11 @@ TreeErrorType RequestVariableValue(VariableTable* ptr_table, const char* variabl
     int c = '\0';
     while ((c = getchar()) != '\n' && c != EOF);
 
-    printf("RequestVariableValue: после scanf, value = %.6f\n", value); //отладочная информацаия
-    printf("RequestVariableValue: вызываем SetVariableValue c value = %.6f\n", value);
+    DEBUG_PRINT("RequestVariableValue: после scanf, value = %.6f\n", value); //отладочная информацаия
+    DEBUG_PRINT("RequestVariableValue: вызываем SetVariableValue c value = %.6f\n", value);
 
     TreeErrorType result = SetVariableValue(ptr_table, variable_name, value);
-    printf("RequestVariableValue: результат SetVariableValue = %d\n", result);
+    DEBUG_PRINT("RequestVariableValue: результат SetVariableValue = %d\n", result);
 
     return result;
 }

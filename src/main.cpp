@@ -8,6 +8,8 @@
 // FIXME - сделай так, чтобы у тебя код помещался до этой вертикальной линии ======================>
 int main(int argc, const char** argv)
 {
+    InitTreeLog("penis");
+
     DifferentiatorStruct* diff_struct = CreateDifferentiatorStruct();
     if (!diff_struct)
     {
@@ -47,7 +49,9 @@ int main(int argc, const char** argv)
         fprintf(stderr, "  Описание: %s\n", GetTreeErrorString(error));
     }
 
+    TreeDump(&diff_struct->tree, "penis"); //FIXME дампов добавить
     DestroyDifferentiatorStruct(diff_struct);
+    CloseTreeLog("penis");
 
     return (error == TREE_ERROR_NO) ? 0 : 1;
 }
