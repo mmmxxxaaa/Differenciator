@@ -17,9 +17,6 @@ typedef struct {
     bool right_use_less_equal;  // использовать <= вместо < для правого аргумента
 } OpFormat;
 
-bool IsNodeType(Node* node, NodeType type);
-bool IsNodeOp(Node* node, OperationType op_type);
-
 void          TreeToStringSimple(Node* node, char* buffer, int* pos, int buffer_size);
 const OpFormat* GetOpFormat(OperationType op_type);
 

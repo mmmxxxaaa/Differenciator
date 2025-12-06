@@ -10,6 +10,7 @@ typedef struct {
     OperationInfo* operations;
     size_t operations_count;
     bool hashes_initialized;
+    const char* original_string;
 } ParserContext;
 
 //FIXME rename

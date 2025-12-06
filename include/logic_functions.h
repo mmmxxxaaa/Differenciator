@@ -9,6 +9,8 @@ bool is_one      (double number);
 bool is_minus_one(double number);
 bool is_unary    (OperationType op);
 bool is_binary   (OperationType op);
+bool IsNodeType(Node* node, NodeType type);
+bool IsNodeOp(Node* node, OperationType op_type);
 
 
 
