@@ -53,7 +53,7 @@ char* SelectDifferentiationVariable(VariableTable* var_table)
         double value = 0.0;
         TreeErrorType error = GetVariableValue(var_table, var_table->variables[i].name, &value);
         if (error == TREE_ERROR_NO)
-            printf(" (значение: %.6f)", value);
+            printf(" (значение: %.6g)", value);
         printf("\n");
     }
 

@@ -5,7 +5,7 @@
 #include "tree_error_types.h"
 #include "user_interface.h"
 
-
+// FIXME - сделай так, чтобы у тебя код помещался до этой вертикальной линии ======================>
 int main(int argc, const char** argv)
 {
     DifferentiatorStruct* diff_struct = CreateDifferentiatorStruct();

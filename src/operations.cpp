@@ -69,7 +69,7 @@ static TreeErrorType EvaluateTreeRecursive(Node* node, VariableTable* var_table,
 
                 if (node->right == NULL)
                     return TREE_ERROR_NULL_PTR;
-
+// FIXME - dsl for checking operation
                 if (node->data.op_value != OP_SIN && node->data.op_value != OP_COS &&
                     node->data.op_value != OP_LN && node->data.op_value != OP_EXP)
                 {
@@ -87,6 +87,7 @@ static TreeErrorType EvaluateTreeRecursive(Node* node, VariableTable* var_table,
 
                 switch (node->data.op_value)
                 {
+                // FIXME - dsl
                     case OP_ADD:
                         *result = left_result + right_result;
                         break;
@@ -493,6 +494,7 @@ static TreeErrorType ConstantFoldingOptimizationWithDump(Node** node, FILE* tex_
 
     if ((*node)->type == NODE_OP)
     {
+    // FIXME - dsl
         if (((*node)->data.op_value == OP_SIN || (*node)->data.op_value == OP_COS ||
              (*node)->data.op_value == OP_LN  || (*node)->data.op_value == OP_EXP) &&
             (*node)->right != NULL && (*node)->right->type == NODE_NUM)
@@ -540,6 +542,7 @@ static TreeErrorType ConstantFoldingOptimizationWithDump(Node** node, FILE* tex_
                 }
             }
         }
+        // FIXME - dsl
         else if ((*node)->left  != NULL && (*node)->left->type  == NODE_NUM &&
                  (*node)->right != NULL && (*node)->right->type == NODE_NUM)
         {
@@ -621,6 +624,7 @@ static TreeErrorType NeutralElementsOptimizationWithDump(Node** node, FILE* tex_
 
         switch ((*node)->data.op_value)
         {
+        // FIXME - dsl
             case OP_ADD:
                 if ((*node)->right != NULL && (*node)->right->type == NODE_NUM &&
                     is_zero((*node)->right->data.num_value))

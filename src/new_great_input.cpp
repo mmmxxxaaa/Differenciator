@@ -52,14 +52,12 @@ static void InitializeOperationHashes(ParserContext* context)
     context->hashes_initialized = true;
 }
 
-// Функция-обертка для создания операций с проверкой ошибок
 static Node* CreateOperation(OperationType op, Node* left, Node* right)
 {
     Node* result = NULL;
 
     if (op == OP_SIN || op == OP_COS || op == OP_LN || op == OP_EXP)
     {
-        // Унарные операции
         switch (op)
         {
             case OP_SIN: result = SIN(right); break;
@@ -76,7 +74,6 @@ static Node* CreateOperation(OperationType op, Node* left, Node* right)
     }
     else
     {
-        // Бинарные операции
         switch (op)
         {
             case OP_ADD: result = ADD(left, right); break;
@@ -110,7 +107,7 @@ static Node* CreateVariableNode(const char* name)
     return CreateNode(NODE_VAR, data, NULL, NULL);
 }
 
-Node* GetG(const char** string, VariableTable* var_table)
+Node* GetGovnoNaBosuNogu(const char** string, VariableTable* var_table)
 {
     assert(string);
     assert(var_table);
@@ -135,7 +132,7 @@ Node* GetG(const char** string, VariableTable* var_table)
     FreeParserContext(context);
     return val;
 }
-
+// FIXME static
 Node* GetE(const char** string, ParserContext* context)
 {
     assert(string);

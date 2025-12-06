@@ -204,7 +204,8 @@ static void WriteHighlightedBuffer(FILE* htm_file, const char* buffer, size_t bu
 
     // текущий символ красный цвет с подсветкой
     if (pos < buffer_length)
-        fprintf(htm_file, "<span style='color:red; font-weight:bold; background:#ffe6e6; padding:1px 3px; border:1px solid #ff9999; border-radius:2px;'>%c</span>",
+        fprintf(htm_file, "<span style='color:red; font-weight:bold; background:#ffe6e6;"
+                          " padding:1px 3px; border:1px solid #ff9999; border-radius:2px;'>%c</span>",
                 buffer[pos]);
     else
         fprintf(htm_file, "<span style='color:red; font-weight:bold; background:#ffe6e6; padding:1px 3px; border:1px solid #ff9999; border-radius:2px;'>КОНЕЦ</span>");

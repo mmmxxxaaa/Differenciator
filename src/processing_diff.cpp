@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-// ==================== ФУНКЦИИ РАБОТЫ С КОНТЕКСТОМ ====================
+// ==================== CONTEXT MANAGEMENT FUNCTIONS ====================
 
 DifferentiatorStruct* CreateDifferentiatorStruct()
 {
@@ -36,7 +36,7 @@ void DestroyDifferentiatorStruct(DifferentiatorStruct* diff_struct)
     free(diff_struct);
 }
 
-// ==================== ОСНОВНЫЕ ФУНКЦИИ ОБРАБОТКИ ====================
+// ==================== MAIN PROCESSING FUNCTIONS ====================
 
 TreeErrorType InitializeExpression(DifferentiatorStruct* diff_struct, int argc, const char** argv)
 {
@@ -63,7 +63,7 @@ TreeErrorType ParseExpressionTree(DifferentiatorStruct* diff_struct)
     if (!diff_struct || !diff_struct->expression) return TREE_ERROR_NULL_PTR;
 
     const char* ptr = diff_struct->expression;
-    diff_struct->tree.root = GetG(&ptr, &diff_struct->var_table);
+    diff_struct->tree.root = GetGovnoNaBosuNogu(&ptr, &diff_struct->var_table);
 
     if (!diff_struct->tree.root)
     {
@@ -169,11 +169,17 @@ TreeErrorType PerformDifferentiationProcess(DifferentiatorStruct* diff_struct)
     char* diff_variable = SelectDifferentiationVariable(&diff_struct->var_table);
     if (!diff_variable)
     {
-        fprintf(diff_struct->tex_file, "Failed to select variable for differentiation.\n\n");
+        fprintf(diff_struct->tex_file, "Failed to select variable for differentiation.\\newline\n\n");
         return TREE_ERROR_NO_VARIABLES;
     }
 
-    fprintf(diff_struct->tex_file, "Differentiation variable: \\[ %s \\]\n\n", diff_variable);
+    fprintf(diff_struct->tex_file, "Differentiation variable: \\[ %s \\]\\newline\n\n", diff_variable);
+
+    TreeErrorType plot_error = AddFunctionPlot(diff_struct, diff_variable);
+    if (plot_error != TREE_ERROR_NO)
+    {
+        fprintf(diff_struct->tex_file, "\\textbf{Note:} Could not create function plot.\\newline\n");
+    }
 
     Tree derivative_trees[kMaxNumberOfDerivative] = {};
     double derivative_results[kMaxNumberOfDerivative] = {};
@@ -192,7 +198,7 @@ TreeErrorType PerformDifferentiationProcess(DifferentiatorStruct* diff_struct)
             break;
         }
 
-        fprintf(diff_struct->tex_file, "\\subsection*{Optimization of derivative %d}\n", i + 1);
+        fprintf(diff_struct->tex_file, "\\subsection*{Derivative %d Optimization}\n", i + 1);
         error = OptimizeTreeWithDump(&derivative_trees[i], diff_struct->tex_file, &diff_struct->var_table);
 
         error = EvaluateTree(&derivative_trees[i], &diff_struct->var_table, &derivative_results[i]);
@@ -201,10 +207,10 @@ TreeErrorType PerformDifferentiationProcess(DifferentiatorStruct* diff_struct)
             printf("Derivative %d: %.6f\n", i + 1, derivative_results[i]);
             actual_derivative_count++;
 
-            fprintf(diff_struct->tex_file, "Look at the original expression:\n");
-            fprintf(diff_struct->tex_file, "\\begin{dmath} f(x) = %s \\end{dmath}\n\n", original_expr);
+            fprintf(diff_struct->tex_file, "Original expression:\n");
+            fprintf(diff_struct->tex_file, "\\begin{dmath} f(x) = %s \\end{dmath}\\newline\n\n", original_expr);
 
-            fprintf(diff_struct->tex_file, "And look at optimized derivative:\n");
+            fprintf(diff_struct->tex_file, "Optimized derivative:\n");
 
             DumpDerivativeToFile(diff_struct->tex_file, &derivative_trees[i], derivative_results[i], i + 1);
         }
@@ -243,7 +249,7 @@ void PrintErrorAndCleanup(DifferentiatorStruct* diff_struct, TreeErrorType error
 {
     if (error != TREE_ERROR_NO)
     {
-        fprintf(stderr, "Ошибка: %s\n", GetTreeErrorString(error));
+        fprintf(stderr, "Error: %s\n", GetTreeErrorString(error));
     }
 
     if (diff_struct)

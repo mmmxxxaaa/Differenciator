@@ -12,7 +12,7 @@ typedef struct {
     bool hashes_initialized;
 } ParserContext;
 
-Node* GetG(const char** s, VariableTable* var_table);
+Node* GetGovnoNaBosuNogu(const char** s, VariableTable* var_table);
 Node* GetE(const char** s, ParserContext* context);
 Node* GetT(const char** s, ParserContext* context);
 Node* GetF(const char** s, ParserContext* context);

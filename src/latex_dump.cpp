@@ -4,6 +4,41 @@
 #include <string.h>
 #include <math.h>
 
+const OpFormat* GetOpFormat(OperationType op_type)
+{
+    static OpFormat formats[OP_COUNT] = {};
+    static bool initialized = false;
+
+    if (!initialized) {
+        formats[OP_ADD] = (OpFormat){"", " + ", "", true, true, false};
+        formats[OP_SUB] = (OpFormat){"", " - ", "", true, true, true};
+        formats[OP_MUL] = (OpFormat){"", " \\cdot ", "", true, true, false};
+        formats[OP_DIV] = (OpFormat){"\\frac{", "}{", "}", false, true, false};
+        formats[OP_POW] = (OpFormat){"{", "}^{", "}", false, true, false};
+        formats[OP_SIN] = (OpFormat){"\\sin(", "", ")", false, false, false};
+        formats[OP_COS] = (OpFormat){"\\cos(", "", ")", false, false, false};
+        formats[OP_LN]  = (OpFormat){"\\ln(", "", ")", false, false, false};
+        formats[OP_EXP] = (OpFormat){"e^{", "", "}", false, false, false};
+        initialized = true;
+    }
+
+    if (op_type >= 0 && op_type < OP_COUNT)
+    {
+        return &formats[op_type];
+    }
+    return NULL;
+}
+
+bool IsNodeType(Node* node, NodeType type)
+{
+    return (node != NULL) && (node->type == type);
+}
+
+bool IsNodeOp(Node* node, OperationType op_type)
+{
+    return IsNodeType(node, NODE_OP) && (node->data.op_value == op_type);
+}
+
 void TreeToStringSimple(Node* node, char* buffer, int* pos, int buffer_size)
 {
     if (node == NULL || *pos >= buffer_size - 1)
@@ -23,139 +58,75 @@ void TreeToStringSimple(Node* node, char* buffer, int* pos, int buffer_size)
             break;
 
         case NODE_OP:
+        {
+            const OpFormat* fmt = GetOpFormat(node->data.op_value);
+            if (fmt == NULL)
             {
-                bool left_needs_parentheses = false;
-                bool right_needs_parentheses = false;
+                *pos += snprintf(buffer + *pos, buffer_size - *pos, "?");
+                break;
+            }
 
-                if (node->left && node->left->type == NODE_OP)
-                {
-                    left_needs_parentheses = (node->left->priority < node->priority);
-                }
+            if (!fmt->is_binary)
+            {
+                *pos += snprintf(buffer + *pos, buffer_size - *pos, "%s", fmt->prefix);
+                TreeToStringSimple(node->right, buffer, pos, buffer_size);
+                *pos += snprintf(buffer + *pos, buffer_size - *pos, "%s", fmt->postfix);
+                break;
+            }
 
-                if (node->right && node->right->type == NODE_OP)
-                {
-                    right_needs_parentheses = (node->right->priority < node->priority) ||
-                                              (node->data.op_value == OP_SUB && node->right->priority <= node->priority) ||
-                                              (node->data.op_value == OP_DIV && node->right->priority <= node->priority);
-                }
+            if (!fmt->should_compare_priority)
+            {
+                // простые бинарные операторы (деление, степень)
+                *pos += snprintf(buffer + *pos, buffer_size - *pos, "%s", fmt->prefix);
+                TreeToStringSimple(node->left, buffer, pos, buffer_size);
+                *pos += snprintf(buffer + *pos, buffer_size - *pos, "%s", fmt->infix);
+                TreeToStringSimple(node->right, buffer, pos, buffer_size);
+                *pos += snprintf(buffer + *pos, buffer_size - *pos, "%s", fmt->postfix);
+                break;
+            }
 
-                switch (node->data.op_value)
-                {
-                    case OP_ADD:
-                        if (left_needs_parentheses)
-                        {
-                            *pos += snprintf(buffer + *pos, buffer_size - *pos, "(");
-                            TreeToStringSimple(node->left, buffer, pos, buffer_size);
-                            *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
-                        }
-                        else
-                        {
-                            TreeToStringSimple(node->left, buffer, pos, buffer_size);
-                        }
+            // сложные бинарные операторы (с проверкой приоритетов)
+            bool left_needs_parentheses = IsNodeType(node->left, NODE_OP) &&
+                                          (node->left->priority < node->priority);
 
-                        *pos += snprintf(buffer + *pos, buffer_size - *pos, " + ");
+            bool right_needs_parentheses = false;
+            if (node->right && IsNodeType(node->right, NODE_OP))
+            {
+                if (fmt->right_use_less_equal)
+                    right_needs_parentheses = (node->right->priority <= node->priority);
+                else
+                    right_needs_parentheses = (node->right->priority < node->priority);
+            }
 
-                        if (right_needs_parentheses)
-                        {
-                            *pos += snprintf(buffer + *pos, buffer_size - *pos, "(");
-                            TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                            *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
-                        }
-                        else
-                        {
-                            TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                        }
-                        break;
-                    case OP_SUB:
-                        if (left_needs_parentheses)
-                        {
-                            *pos += snprintf(buffer + *pos, buffer_size - *pos, "(");
-                            TreeToStringSimple(node->left, buffer, pos, buffer_size);
-                            *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
-                        }
-                        else
-                        {
-                            TreeToStringSimple(node->left, buffer, pos, buffer_size);
-                        }
+            // левый аргумент
+            if (left_needs_parentheses)
+            {
+                *pos += snprintf(buffer + *pos, buffer_size - *pos, "(");
+                TreeToStringSimple(node->left, buffer, pos, buffer_size);
+                *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
+            }
+            else
+            {
+                TreeToStringSimple(node->left, buffer, pos, buffer_size);
+            }
 
-                        *pos += snprintf(buffer + *pos, buffer_size - *pos, " - ");
+            // сам оператор
+            if (fmt->infix[0] != '\0')
+                *pos += snprintf(buffer + *pos, buffer_size - *pos, "%s", fmt->infix);
 
-                        if (right_needs_parentheses)
-                        {
-                            *pos += snprintf(buffer + *pos, buffer_size - *pos, "(");
-                            TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                            *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
-                        }
-                        else
-                        {
-                            TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                        }
-                        break;
-
-                    case OP_MUL:
-                        if (left_needs_parentheses)
-                        {
-                            *pos += snprintf(buffer + *pos, buffer_size - *pos, "(");
-                            TreeToStringSimple(node->left, buffer, pos, buffer_size);
-                            *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
-                        }
-                        else
-                        {
-                            TreeToStringSimple(node->left, buffer, pos, buffer_size);
-                        }
-
-                        *pos += snprintf(buffer + *pos, buffer_size - *pos, " \\cdot ");
-
-                        if (right_needs_parentheses)
-                        {
-                            *pos += snprintf(buffer + *pos, buffer_size - *pos, "(");
-                            TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                            *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
-                        }
-                        else
-                        {
-                            TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                        }
-                        break;
-                    case OP_DIV:
-                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "\\frac{");
-                        TreeToStringSimple(node->left,  buffer, pos, buffer_size);
-                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "}{");
-                        TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "}");
-                        break;
-                    case OP_SIN:
-                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "\\sin(");
-                        TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                        *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
-                        break;
-                    case OP_COS:
-                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "\\cos(");
-                        TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                        *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
-                        break;
-                    case OP_POW:
-                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "{");
-                        TreeToStringSimple(node->left, buffer, pos, buffer_size);
-                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "}^{");
-                        TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "}");
-                        break;
-                    case OP_LN:
-                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "\\ln(");
-                        TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                        *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
-                        break;
-                    case OP_EXP:
-                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "e^{");
-                        TreeToStringSimple(node->right, buffer, pos, buffer_size);
-                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "}");
-                        break;
-                    default:
-                        *pos += snprintf(buffer + *pos, buffer_size - *pos, "?");
-                }
+            // правый аргумент
+            if (right_needs_parentheses)
+            {
+                *pos += snprintf(buffer + *pos, buffer_size - *pos, "(");
+                TreeToStringSimple(node->right, buffer, pos, buffer_size);
+                *pos += snprintf(buffer + *pos, buffer_size - *pos, ")");
+            }
+            else
+            {
+                TreeToStringSimple(node->right, buffer, pos, buffer_size);
             }
             break;
+        }
 
         default:
             *pos += snprintf(buffer + *pos, buffer_size - *pos, "?");
@@ -189,6 +160,12 @@ char* ConvertLatexToPGFPlot(const char* latex_expr)
             dest += 3;
             src += 4;
         }
+        else if (strncmp(src, "\\tan", 4) == 0)
+        {
+            strcpy(dest, "tan");
+            dest += 3;
+            src += 4;
+        }
         else if (strncmp(src, "\\ln", 3) == 0)
         {
             strcpy(dest, "ln");
@@ -202,40 +179,53 @@ char* ConvertLatexToPGFPlot(const char* latex_expr)
         }
         else if (strncmp(src, "\\frac", 5) == 0)
         {
-            // \frac{a}{b} -> (a)/(b)
-            strcpy(dest, "( )/( )");
-            dest += 7;
+            *dest++ = '(';
             src += 5;
             while (*src && *src != '}')
+            {
+                *dest++ = *src++;
+            }
+            if (*src == '}')
+            {
+                *dest++ = ')';
                 src++;
-            if (*src) src++;  // Пропускаем }
+            }
+            *dest++ = '/';
+            *dest++ = '(';
             while (*src && *src != '}')
+            {
+                *dest++ = *src++;
+            }
+            if (*src == '}')
+            {
+                *dest++ = ')';
                 src++;
-            if (*src)
-                src++;  // Пропускаем }
+            }
         }
         else if (strncmp(src, "e^{", 3) == 0)
         {
-            // e^{x} -> exp(x)
             strcpy(dest, "exp(");
             dest += 4;
             src += 3;
         }
-        else if (src[0] == '^' && src[1] == '{')
+        else if (*src == '^' && src[1] == '{')
         {
-            //^{x} -> ^(x)
             *dest++ = '^';
             *dest++ = '(';
-            src += 2;  // Пропускаем ^{
+            src += 2;
         }
-        else if (*src == '{' || *src == '}')
+        else if (*src == '{')
         {
-            if (*(src-1) == '^' || *(src+1) == '^')
-            {
-                // Для степеней {} -> ()
-                if (*src == '{') *dest++ = '(';
-                if (*src == '}') *dest++ = ')';
-            }
+            *dest++ = '(';
+            src++;
+        }
+        else if (*src == '}')
+        {
+            *dest++ = ')';
+            src++;
+        }
+        else if (*src == '\\')
+        {
             src++;
         }
         else
@@ -253,47 +243,133 @@ TreeErrorType StartLatexDump(FILE* file)
     if (file == NULL)
         return TREE_ERROR_NULL_PTR;
 
-    fprintf(file, "\\documentclass[12pt]{article}\n");
-    fprintf(file, "\\usepackage[utf8]{inputenc}\n");
-    fprintf(file, "\\usepackage{amsmath}\n");
-    fprintf(file, "\\usepackage{breqn}\n");
+    static const char* document_setup =
+        "\\documentclass[12pt]{article}\n"
+        "\\usepackage[utf8]{inputenc}\n"
+        "\\usepackage{amsmath}\n"
+        "\\usepackage{breqn}\n"
+        "\\usepackage{pgfplots}\n"
+        "\\pgfplotsset{compat=1.18}\n"
+        "\\usepackage{geometry}\n"
+        "\\geometry{a4paper, left=20mm, right=20mm, top=20mm, bottom=20mm}\n"
+        "\\setlength{\\parindent}{0pt}\n"
+        "\\setlength{\\parskip}{1em}\n"
+        "\\begin{document}\n";
 
-    fprintf(file, "\\usepackage{pgfplots}\n");
-    fprintf(file, "\\pgfplotsset{compat=1.18}\n");
+    static const char* title_page =
+        "\\begin{titlepage}\n"
+        "\\centering\n"
+        "\\vspace*{2cm}\n"
+        "{\\Huge \\textbf{Mathematical Expression Analysis}}\\par\n"
+        "\\vspace{1cm}\n"
+        "{\\Large Automatic Differentiation and Optimization}\\par\n"
+        "\\vspace{2cm}\n"
+        "{\\large Automatically generated report}\\par\n"
+        "\\vspace{1cm}\n"
+        "{\\large \\today}\\par\n"
+        "\\vfill\n"
+        "{\\large Author: Katkov Maksim Alekseevich}\\par\n"
+        "\\end{titlepage}\n\n"
+        "\\vspace{1cm}\n";
 
-    fprintf(file, "\\usepackage{geometry}\n");
-    fprintf(file, "\\geometry{a4paper, left=20mm, right=20mm, top=20mm, bottom=20mm}\n");
-    fprintf(file, "\\setlength{\\parindent}{0pt}\n"); //убирает отступы в начале абзацев
-    fprintf(file, "\\setlength{\\parskip}{1em}\n");   //устанавливает расстояние между абзацами в 1em
-    fprintf(file, "\\begin{document}\n");
+    static const char* intro =
+        "\\section*{Introduction}\n"
+        "\\addcontentsline{toc}{section}{Introduction}\n"
+        "This document presents a complete analysis of a mathematical expression, including:\n"
+        "\\begin{itemize}\n"
+        "\\item Original expression and its evaluation\n"
+        "\\item Optimization and simplification process\n"
+        "\\item \\textbf{Lots of derivatives} of various orders\n"
+        "\\item Variable table with their values\n"
+        "\\end{itemize}\n"
+        "\\newpage\n";
 
-    fprintf(file, "\\begin{titlepage}\n");
-    fprintf(file, "\\centering\n");
-    fprintf(file, "\\vspace*{2cm}\n"); //добавляет вертикальный отступ указанной величины
-    fprintf(file, "{\\Huge \\textbf{Mathematical Expression Analysis}}\\par\n");
-    fprintf(file, "\\vspace{1cm}\n");
-    fprintf(file, "{\\Large Automatic Differentiation and Optimization}\\par\n");
-    fprintf(file, "\\vspace{2cm}\n");
-    fprintf(file, "{\\large Automatically generated report}\\par\n");
-    fprintf(file, "\\vspace{1cm}\n");
-    fprintf(file, "{\\large \\today}\\par\n");  //par: после команд изменения шрифта (\Huge, \Large, \large) (для ограничения области их действия)
-    fprintf(file, "\\vfill\n");
-    fprintf(file, "{\\large Author: Katkov Maksim Alekseevich}\\par\n");
-    fprintf(file, "\\end{titlepage}\n\n");
+    fprintf(file, "%s", document_setup);
+    fprintf(file, "%s", title_page);
+    fprintf(file, "%s", intro);
 
-    // fprintf(file, "\\tableofcontents\n");
-    fprintf(file, "\\vspace{1cm}\n");
+    return TREE_ERROR_NO;
+}
 
-    fprintf(file, "\\section*{Introduction}\n");
-    fprintf(file, "\\addcontentsline{toc}{section}{Introduction}\n");
-    fprintf(file, "This document presents a complete analysis of a mathematical expression, including:\n");
-    fprintf(file, "\\begin{itemize}\n");
-    fprintf(file, "\\item Original expression and its evaluation\n");
-    fprintf(file, "\\item Optimization and simplification process\n");
-    fprintf(file, "\\item \\textbf{Lots of derivatives} of various orders\n");
-    fprintf(file, "\\item Variable table with their values\n");
-    fprintf(file, "\\end{itemize}\n");
-    fprintf(file, "\\newpage\n");
+TreeErrorType AddFunctionPlot(DifferentiatorStruct* diff_struct, const char* diff_variable)
+{
+    if (!diff_struct || !diff_variable)
+        return TREE_ERROR_NULL_PTR;
+
+    double x_min = -10.0, x_max = 10.0;
+    int num_points = 200;
+
+    printf("\n=== Function Plot Generation ===\n");
+    printf("Function: ");
+
+    char expression[kMaxLengthOfTexExpression] = {0};
+    int pos = 0;
+    TreeToStringSimple(diff_struct->tree.root, expression, &pos, sizeof(expression));
+    printf("%s\n", expression);
+
+    printf("Plot variable: %s\n", diff_variable);
+    printf("Enter plot range (min max, e.g., -10 10): ");
+
+    if (scanf("%lf %lf", &x_min, &x_max) != 2)
+    {
+        printf("Using default range: [-10, 10]\n");
+        x_min = -10.0;
+        x_max = 10.0;
+    }
+
+    printf("Enter number of points (default 200): ");
+    if (scanf("%d", &num_points) != 1 || num_points <= 0)
+    {
+        num_points = 200;
+    }
+
+    int c = 0;
+    while ((c = getchar()) != '\n' && c != EOF);
+
+    char* pgf_expr = ConvertLatexToPGFPlot(expression);
+    if (!pgf_expr)
+    {
+        fprintf(stderr, "Error converting expression to PGFPlots format\n");
+        return TREE_ERROR_MEMORY;
+    }
+
+    printf("PGFPlots expression: %s\n", pgf_expr);
+
+    fprintf(diff_struct->tex_file, "\\section*{Function Plot}\n");
+    fprintf(diff_struct->tex_file, "Plot of function $f(%s) = %s$ in range $[%.2f, %.2f]$.\n\n",
+            diff_variable, expression, x_min, x_max);
+
+    fprintf(diff_struct->tex_file, "\\begin{figure}[h]\n");
+    fprintf(diff_struct->tex_file, "\\centering\n");
+    fprintf(diff_struct->tex_file, "\\begin{tikzpicture}\n");
+    fprintf(diff_struct->tex_file, "\\begin{axis}[\n");
+    fprintf(diff_struct->tex_file, "    width=0.8\\textwidth,\n");
+    fprintf(diff_struct->tex_file, "    height=0.6\\textwidth,\n");
+    fprintf(diff_struct->tex_file, "    axis lines = middle,\n");
+    fprintf(diff_struct->tex_file, "    xlabel = {$%s$},\n", diff_variable);
+    fprintf(diff_struct->tex_file, "    ylabel = {$f(%s)$},\n", diff_variable);
+    fprintf(diff_struct->tex_file, "    grid = major,\n");
+    fprintf(diff_struct->tex_file, "    grid style = {dashed, gray!30},\n");
+    fprintf(diff_struct->tex_file, "    legend pos = north west,\n");
+    fprintf(diff_struct->tex_file, "    title = {Function Plot},\n");
+    fprintf(diff_struct->tex_file, "    domain = %.2f:%.2f,\n", x_min, x_max);
+    fprintf(diff_struct->tex_file, "    samples = %d,\n", num_points);
+    fprintf(diff_struct->tex_file, "    smooth,\n");
+    fprintf(diff_struct->tex_file, "    trig format=rad\n");
+    fprintf(diff_struct->tex_file, "]\n");
+
+    fprintf(diff_struct->tex_file, "\\addplot[blue, thick] {%s};\n", pgf_expr);
+    fprintf(diff_struct->tex_file, "\\addlegendentry{$f(%s) = %s$}\n", diff_variable, expression);
+
+    fprintf(diff_struct->tex_file, "\\end{axis}\n");
+    fprintf(diff_struct->tex_file, "\\end{tikzpicture}\n");
+    fprintf(diff_struct->tex_file, "\\caption{Plot of $f(%s) = %s$}\n",
+            diff_variable, expression);
+    fprintf(diff_struct->tex_file, "\\end{figure}\n");
+    fprintf(diff_struct->tex_file, "\\vspace{1cm}\n\n");
+
+    free(pgf_expr);
+    printf("Plot successfully added to document.\n");
 
     return TREE_ERROR_NO;
 }
@@ -304,45 +380,6 @@ TreeErrorType EndLatexDump(FILE* file)
         return TREE_ERROR_NULL_PTR;
 
     fprintf(file, "\\end{document}\n");
-    return TREE_ERROR_NO;
-}
-
-TreeErrorType AddLatexPlot(FILE* file, const char* function_formula, //СИГМА СКИБИДИ
-                          double x_min, double x_max, const char* title)
-{
-    if (file == NULL)
-        return TREE_ERROR_NULL_PTR;
-
-    fprintf(file, "\\begin{figure}[h]\n");
-    fprintf(file, "\\centering\n");
-    fprintf(file, "\\begin{tikzpicture}\n");
-    fprintf(file, "\\begin{axis}[\n");
-    fprintf(file, "    width=0.8\\textwidth,\n"); // Ширина графика"
-    fprintf(file, "    height=0.6\\textwidth,\n"); // Высота"
-    fprintf(file, "    axis lines = middle,\n");
-    fprintf(file, "    xlabel = {$x$},\n");   //Подпись оси X
-    fprintf(file, "    ylabel = {$f(x)$},\n"); //Подпись оси Y
-    fprintf(file, "    grid = major,\n"); // Включить сетку
-    fprintf(file, "    grid style = {dashed, gray!30},\n"); // Стиль сетки
-    fprintf(file, "    legend pos = north west,\n"); // Положение легенд
-    fprintf(file, "    title = {%s},\n", title);
-    fprintf(file, "    domain = %f:%f,\n", x_min, x_max); // Область определения
-    fprintf(file, "    samples = 200,\n"); /// Количество точек
-    fprintf(file, "    trig format=rad\n"); //Углы в радианах
-
-    fprintf(file, "]\n");
-
-    fprintf(file, "\\addplot[blue, thick, smooth] {%s};\n", function_formula);
-    fprintf(file, "\\addlegendentry{$f(x) = %s$}\n", function_formula);
-
-    //FIXME сюда ТЕЙЛОРА
-
-    fprintf(file, "\\end{axis}\n");
-    fprintf(file, "\\end{tikzpicture}\n");
-    fprintf(file, "\\caption{Plot: $f(x) = %s$}\n", function_formula);
-    fprintf(file, "\\end{figure}\n");
-    fprintf(file, "\\vspace{1cm}\n");
-
     return TREE_ERROR_NO;
 }
 
@@ -377,8 +414,6 @@ TreeErrorType DumpOptimizationStepToFile(FILE* file, const char* description, Tr
     TreeToStringSimple(tree->root, expression, &pos, sizeof(expression));
 
     fprintf(file, "\\begin{dmath} %s \\end{dmath}\n\n", expression);
-    // fprintf(file, "Result after simplification:\n");
-    // fprintf(file, "\\begin{dmath} %.6f \\end{dmath}\n\n", result_value);
     fprintf(file, "\\vspace{0.5em}\n");
 
     return TREE_ERROR_NO;
@@ -394,7 +429,7 @@ TreeErrorType DumpDerivativeToFile(FILE* file, Tree* derivative_tree, double der
     TreeToStringSimple(derivative_tree->root, derivative_expr, &pos, sizeof(derivative_expr));
 
     const char* derivative_notation = NULL;
-    char custom_notation[kMaxCustomNotationLength] = {0}; //FIXME
+    char custom_notation[kMaxCustomNotationLength] = {0};
 
     if (derivative_order == 1)
     {

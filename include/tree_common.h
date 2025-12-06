@@ -37,9 +37,11 @@ typedef enum {
     OP_COS,
     OP_POW,
     OP_LN,
-    OP_EXP
+    OP_EXP,
+    OP_COUNT
 } OperationType;
 //FIXME можно сделать так чтобы табл переменных держала в себе всю память для переменных а дерево только знало указатели, которые держит таблица
+
 typedef struct {
     unsigned int hash;
     char* name;
@@ -83,6 +85,5 @@ typedef struct {
     size_t         capacity;
     size_t         current_depth;
 } LoadProgress;
-
 
 #endif //TREE_COMMON_H_

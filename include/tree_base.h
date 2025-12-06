@@ -5,6 +5,18 @@
 #include "tree_common.h"
 #include "tree_error_types.h"
 
+#define DEBUG
+
+#ifdef DEBUG
+    #define DEBUG_PRINT(format, ...) \
+        do { \
+            fprintf(stderr, "[DEBUG %s:%d] ", __FILE__, __LINE__); \
+            fprintf(stderr, format, ##__VA_ARGS__); \
+        } while(0)
+#else
+    #define DEBUG_PRINT(format, ...) ((void)0)
+#endif
+
 TreeErrorType TreeCtor(Tree* tree);
 TreeErrorType TreeDtor(Tree* tree);
 void FreeNode(Node* node);
