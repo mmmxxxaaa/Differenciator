@@ -28,11 +28,5 @@ TreeErrorType CloseTreeLog(const char* filename);
 TreeVerifyResult VerifyTree(Tree* tree);
 const char* TreeVerifyResultToString(TreeVerifyResult result);
 
-TreeErrorType TreeLoadDump(Tree* tree, const char* filename, const char* buffer, size_t buffer_length,
-                           size_t buffer_pos, LoadProgress* progress, const char* comment);
-TreeErrorType GenerateLoadProgressDotFile(Tree* tree, LoadProgress* progress, const char* filename);
-TreeErrorType TreeLoadDumpToHtm(Tree* tree, FILE* htm_file, const char* folder_path, const char* folder_name,
-                               const char* buffer, size_t buffer_length, size_t buffer_pos, LoadProgress* progress, const char* comment);
-
 
 #endif // DUMP_FOR_TREE_H_

@@ -21,8 +21,6 @@ TreeErrorType TreeCtor(Tree* tree);
 TreeErrorType TreeDtor(Tree* tree);
 void FreeNode(Node* node);
 
-bool IsLeaf(Node* node);
-
 unsigned int ComputeHash(const char* str);
 
 #endif // TREE_BASE_H_

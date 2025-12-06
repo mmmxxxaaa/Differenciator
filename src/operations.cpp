@@ -15,7 +15,6 @@
 #include "DSL.h"
 
 // ==================== ПРОТОТИПЫ ФУНКЦИЙ ====================
-static void  FreeNodes(int count, ...);
 static bool  ContainsVariable(Node* node, const char* variable_name);
 static void  ReplaceNode(Node** node_ptr, Node* new_node);
 static Node* DifferentiateNode(Node* node, const char* variable_name);
@@ -34,18 +33,6 @@ void FreeSubtree(Node* node)
         free(node->data.var_definition.name);
 
     free(node);
-}
-
-static void FreeNodes(int count, ...)
-{
-    va_list args;
-    va_start(args, count);
-    for (int i = 0; i < count; i++)
-    {
-        Node* node = va_arg(args, Node*);
-        if (node) FreeSubtree(node);
-    }
-    va_end(args);
 }
 
 static TreeErrorType EvaluateTreeRecursive(Node* node, VariableTable* var_table, double* result, int depth)

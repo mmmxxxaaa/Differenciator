@@ -23,11 +23,8 @@ TreeErrorType InitializeLatexOutput        (DifferentiatorStruct* diff_struct);
 TreeErrorType RequestVariableValues        (DifferentiatorStruct* diff_struct);
 TreeErrorType EvaluateOriginalFunction     (DifferentiatorStruct* diff_struct);
 TreeErrorType OptimizeExpressionTree       (DifferentiatorStruct* diff_struct);
-TreeErrorType PlotFunctionAndTaylorGraph   (DifferentiatorStruct* diff_struct);
-// TreeErrorType PlotFunctionGraph         (DifferentiatorStruct* diff_struct);
 TreeErrorType PerformDifferentiationProcess(DifferentiatorStruct* diff_struct);
 TreeErrorType FinalizeLatexOutput          (DifferentiatorStruct* diff_struct);
-void PrintErrorAndCleanup(DifferentiatorStruct* diff_struct, TreeErrorType error);
 
 
 #endif // PROCESSING_DIFF_H

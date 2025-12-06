@@ -12,6 +12,7 @@ typedef struct {
     bool hashes_initialized;
 } ParserContext;
 
+//FIXME rename
 Node* GetGovnoNaBosuNogu(const char** s, VariableTable* var_table);
 Node* GetE(const char** s, ParserContext* context);
 Node* GetT(const char** s, ParserContext* context);

@@ -50,13 +50,6 @@ TreeErrorType TreeDtor(Tree* tree)
     return TREE_ERROR_NO;
 }
 
-bool IsLeaf(Node* node)
-{
-    if (node == NULL)
-        return false;
-
-    return (node->left == NULL && node->right == NULL);
-}
 
 unsigned int ComputeHash(const char* str) //djb2
 {

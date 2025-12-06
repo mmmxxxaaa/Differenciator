@@ -244,16 +244,3 @@ TreeErrorType FinalizeLatexOutput(DifferentiatorStruct* diff_struct)
 
     return TREE_ERROR_NO;
 }
-
-void PrintErrorAndCleanup(DifferentiatorStruct* diff_struct, TreeErrorType error)
-{
-    if (error != TREE_ERROR_NO)
-    {
-        fprintf(stderr, "Error: %s\n", GetTreeErrorString(error));
-    }
-
-    if (diff_struct)
-    {
-        DestroyDifferentiatorStruct(diff_struct);
-    }
-}

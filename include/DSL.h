@@ -12,7 +12,9 @@
 
 // ==================== СОЗДАНИЕ УЗЛОВ ====================
 #define NUM(val)     CreateNode(NODE_NUM, (ValueOfTreeElement){.num_value = (val)}, NULL, NULL)
-#define VAR(var_name) CreateNode(NODE_VAR, (ValueOfTreeElement){.var_definition = {.hash = ComputeHash(var_name), .name = strdup(var_name)}}, NULL, NULL)
+#define VAR(var_name) CreateNode(NODE_VAR, (ValueOfTreeElement){.var_definition = \
+                            {.hash = ComputeHash(var_name), .name = strdup(var_name)}}, NULL, NULL)
+
 // Бинарные операции
 #define ADD(left, right) CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_ADD}, (left), (right))
 #define SUB(left, right) CreateNode(NODE_OP, (ValueOfTreeElement){.op_value = OP_SUB}, (left), (right))

@@ -74,16 +74,4 @@ typedef struct {
     char* file_buffer;
 } Tree;
 
-typedef struct {
-    Node*  node;
-    size_t depth;
-} NodeDepthInfo;
-
-typedef struct {
-    NodeDepthInfo* items;
-    size_t         size;
-    size_t         capacity;
-    size_t         current_depth;
-} LoadProgress;
-
 #endif //TREE_COMMON_H_
